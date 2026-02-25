@@ -34,13 +34,20 @@ function timeAgo(dateStr: string) {
 
 interface WatchTarget { video: SessionVideo; sessionId: string }
 
-export default function DashboardView({ initialSessions }: { initialSessions: Session[] }) {
+interface DashboardViewProps {
+  initialSessions: Session[]
+  userRole: 'captain' | 'contributor'
+  userName: string
+}
+
+export default function DashboardView({ initialSessions, userRole, userName }: DashboardViewProps) {
+  const isCaptain = userRole === 'captain'
   const [sessions, setSessions] = useState<Session[]>(initialSessions)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     initialSessions.find((s) => s.is_active)?.id ?? initialSessions[0]?.id ?? null
   )
   const [sidebarView, setSidebarView] = useState<SidebarView>('session')
-  const [mainTab, setMainTab] = useState<MainTab>('review')
+  const [mainTab, setMainTab] = useState<MainTab>(userRole === 'captain' ? 'review' : 'videos')
   const [reviewComments, setReviewComments] = useState<Comment[]>([])
   const [loadingReview, setLoadingReview] = useState(false)
   const [expandedVideos, setExpandedVideos] = useState<Set<string>>(new Set())
@@ -117,7 +124,7 @@ export default function DashboardView({ initialSessions }: { initialSessions: Se
       <aside className="w-60 bg-white border-r border-gray-100 flex flex-col shrink-0">
         <div className="px-4 py-4 border-b border-gray-100">
           <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Telltale</p>
-          <p className="text-sm font-semibold text-gray-700 mt-0.5">Captain Dashboard</p>
+          <p className="text-sm font-semibold text-gray-700 mt-0.5">{isCaptain ? 'Captain Dashboard' : userName}</p>
         </div>
 
         <div className="flex-1 overflow-y-auto py-3">
@@ -158,7 +165,7 @@ export default function DashboardView({ initialSessions }: { initialSessions: Se
           ))}
         </div>
 
-        <SessionManager onSessionCreated={fetchSessions} />
+        {isCaptain && <SessionManager onSessionCreated={fetchSessions} />}
 
         <div className="px-4 py-3 border-t border-gray-100">
           <button
@@ -178,8 +185,8 @@ export default function DashboardView({ initialSessions }: { initialSessions: Se
         {sidebarView === 'reference' && (
           <div className="max-w-5xl mx-auto px-6 py-6">
             <ReferenceManager
-              isCaptain={true}
-              userName="Captain"
+              isCaptain={isCaptain}
+              userName={userName}
               activeSessionId={sessions.find((s) => s.is_active)?.id}
             />
           </div>
@@ -196,16 +203,18 @@ export default function DashboardView({ initialSessions }: { initialSessions: Se
                   {sessionVideos.length} video{sessionVideos.length !== 1 ? 's' : ''} &middot; {reviewComments.length} for review
                 </p>
               </div>
-              <button
-                onClick={() => setShowVideoManager((v) => !v)}
-                className="shrink-0 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
-              >
-                {showVideoManager ? 'Done' : 'Manage videos'}
-              </button>
+              {isCaptain && (
+                <button
+                  onClick={() => setShowVideoManager((v) => !v)}
+                  className="shrink-0 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  {showVideoManager ? 'Done' : 'Manage videos'}
+                </button>
+              )}
             </div>
 
-            {/* Video manager */}
-            {showVideoManager && (
+            {/* Video manager — captain only */}
+            {isCaptain && showVideoManager && (
               <div className="mb-5 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <VideoManager
                   sessionId={selectedSessionId}
@@ -219,21 +228,23 @@ export default function DashboardView({ initialSessions }: { initialSessions: Se
 
             {/* Tabs */}
             <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6 w-fit">
-              <button
-                onClick={() => setMainTab('review')}
-                className={clsx(
-                  'flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
-                  mainTab === 'review' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                )}
-              >
-                <Shield className="h-4 w-4" />
-                Review queue
-                {reviewComments.length > 0 && (
-                  <span className="bg-blue-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
-                    {reviewComments.length}
-                  </span>
-                )}
-              </button>
+              {isCaptain && (
+                <button
+                  onClick={() => setMainTab('review')}
+                  className={clsx(
+                    'flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+                    mainTab === 'review' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  )}
+                >
+                  <Shield className="h-4 w-4" />
+                  Review queue
+                  {reviewComments.length > 0 && (
+                    <span className="bg-blue-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
+                      {reviewComments.length}
+                    </span>
+                  )}
+                </button>
+              )}
               <button
                 onClick={() => setMainTab('videos')}
                 className={clsx(
@@ -409,8 +420,8 @@ export default function DashboardView({ initialSessions }: { initialSessions: Se
         <VideoWatchView
           video={watchTarget.video}
           sessionId={watchTarget.sessionId}
-          userName="Captain"
-          isCaptain={true}
+          userName={userName}
+          isCaptain={isCaptain}
           onNoteUpdated={handleNoteUpdated}
           onClose={() => setWatchTarget(null)}
         />

@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { verifyToken, COOKIE_NAME } from '@/lib/auth'
+import { getTokenPayload } from '@/lib/auth'
 
-// GET /api/sessions — captain only
+// GET /api/sessions — authenticated users only
 export async function GET(req: NextRequest) {
-  const token = req.cookies.get(COOKIE_NAME)?.value
-  if (!token || !(await verifyToken(token))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const payload = await getTokenPayload(req)
+  if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data, error } = await supabase
     .from('sessions')
@@ -20,8 +18,8 @@ export async function GET(req: NextRequest) {
 
 // POST /api/sessions — captain only, create new session and set it active
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get(COOKIE_NAME)?.value
-  if (!token || !(await verifyToken(token))) {
+  const payload = await getTokenPayload(req)
+  if (!payload || payload.role !== 'captain') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

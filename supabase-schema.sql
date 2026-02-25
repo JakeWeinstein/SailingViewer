@@ -31,9 +31,22 @@ CREATE TABLE reference_videos (
   video_ref TEXT NOT NULL,   -- Drive file ID or YouTube video ID
   note TEXT,
   note_timestamp INTEGER,    -- seconds
+  folder_id TEXT,            -- optional grouping
   sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Contributor user accounts (for username/password auth)
+CREATE TABLE users (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  display_name TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'contributor' CHECK (role IN ('captain', 'contributor')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX users_username_idx ON users(username);
 
 -- ─── Migration (if you already ran the old schema) ───
 -- ALTER TABLE sessions DROP COLUMN IF EXISTS folder_id;

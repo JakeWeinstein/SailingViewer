@@ -8,8 +8,10 @@ export const config = {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Allow the login page through
-  if (pathname === '/dashboard/login') return NextResponse.next()
+  // Allow login and register pages through
+  if (pathname === '/dashboard/login' || pathname === '/dashboard/register') {
+    return NextResponse.next()
+  }
 
   const token = req.cookies.get(COOKIE_NAME)?.value
 

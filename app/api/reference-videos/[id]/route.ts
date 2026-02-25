@@ -1,21 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { verifyToken, COOKIE_NAME } from '@/lib/auth'
-import { cookies } from 'next/headers'
-
-async function checkAuth() {
-  const cookieStore = await cookies()
-  const token = cookieStore.get(COOKIE_NAME)?.value
-  return token ? verifyToken(token) : false
-}
+import { getTokenPayload } from '@/lib/auth'
 
 export async function DELETE(
-  _req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await checkAuth())) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const payload = await getTokenPayload(req)
+  if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { id } = await params
   const { error } = await supabase.from('reference_videos').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -23,18 +16,30 @@ export async function DELETE(
 }
 
 export async function PATCH(
-  req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await checkAuth())) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const payload = await getTokenPayload(req)
+  if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { id } = await params
-  const { note, noteTimestamp } = await req.json()
+  const body = await req.json()
+
+  const updates: Record<string, unknown> = {}
+  if ('note' in body) updates.note = body.note ?? null
+  if ('noteTimestamp' in body) updates.note_timestamp = body.noteTimestamp ?? null
+  if ('folder_id' in body) updates.folder_id = body.folder_id ?? null
+  if ('title' in body) updates.title = body.title
+  if ('type' in body) updates.type = body.type
+  if ('video_ref' in body) updates.video_ref = body.video_ref
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+  }
 
   const { data, error } = await supabase
     .from('reference_videos')
-    .update({ note: note ?? null, note_timestamp: noteTimestamp ?? null })
+    .update(updates)
     .eq('id', id)
     .select()
     .single()

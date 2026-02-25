@@ -1,26 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { verifyToken, COOKIE_NAME } from '@/lib/auth'
+import { getTokenPayload } from '@/lib/auth'
 import type { SessionVideo } from '@/lib/types'
 
-async function authCheck(req: NextRequest) {
-  const token = req.cookies.get(COOKIE_NAME)?.value
-  return token ? verifyToken(token) : false
-}
-
 // PATCH /api/sessions/[id]
-// Body: { videos: SessionVideo[] }           — replace full video list
-//    or { videoId: string, note: string }    — update one video's note
+// Body: { videos: SessionVideo[] }           — replace full video list (auth required)
+//    or { videoId: string, note: string }    — update one video's note (captain only)
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await authCheck(req))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const payload = await getTokenPayload(req)
+  if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
   const body = await req.json()
 
-  // Update a single video's note
+  // Update a single video's note — captain only
   if ('videoId' in body && 'note' in body) {
+    if (payload.role !== 'captain') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { data: session, error: fetchError } = await supabase
       .from('sessions')
       .select('videos')
@@ -44,7 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json(data)
   }
 
-  // Replace full video list
+  // Replace full video list — any authenticated user
   if ('videos' in body) {
     if (!Array.isArray(body.videos)) {
       return NextResponse.json({ error: 'videos must be an array' }, { status: 400 })

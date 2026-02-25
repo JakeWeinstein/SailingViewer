@@ -5,14 +5,11 @@ import { supabase } from '@/lib/supabase'
 import DashboardView from '@/components/DashboardView'
 
 export default async function DashboardPage() {
-  // Auth check (belt-and-suspenders beyond middleware)
   const cookieStore = await cookies()
   const token = cookieStore.get(COOKIE_NAME)?.value
-  if (!token || !(await verifyToken(token))) {
-    redirect('/dashboard/login')
-  }
+  const payload = token ? await verifyToken(token) : null
+  if (!payload) redirect('/dashboard/login')
 
-  // Fetch all sessions server-side
   const { data: sessions, error } = await supabase
     .from('sessions')
     .select('*')
@@ -26,5 +23,11 @@ export default async function DashboardPage() {
     )
   }
 
-  return <DashboardView initialSessions={sessions ?? []} />
+  return (
+    <DashboardView
+      initialSessions={sessions ?? []}
+      userRole={payload.role}
+      userName={payload.userName ?? (payload.role === 'captain' ? 'Captain' : 'Contributor')}
+    />
+  )
 }

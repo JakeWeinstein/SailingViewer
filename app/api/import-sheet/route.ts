@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken, COOKIE_NAME } from '@/lib/auth'
+import { getTokenPayload } from '@/lib/auth'
 
 function extractSheetId(url: string): string | null {
   const m = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/)
@@ -26,12 +26,10 @@ function parseCSV(text: string): string[][] {
   })
 }
 
-// POST /api/import-sheet — captain only
+// POST /api/import-sheet — authenticated users
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get(COOKIE_NAME)?.value
-  if (!token || !(await verifyToken(token))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const payload = await getTokenPayload(req)
+  if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { url } = await req.json()
   const sheetId = extractSheetId(url)

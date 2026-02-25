@@ -26,3 +26,11 @@ export type Comment = {
   send_to_captain: boolean
   created_at: string
 }
+
+export type User = {
+  id: string
+  username: string
+  display_name: string
+  role: 'captain' | 'contributor'
+  created_at: string
+}

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { verifyToken, COOKIE_NAME } from '@/lib/auth'
+import { getTokenPayload } from '@/lib/auth'
 import type { SessionVideo } from '@/lib/types'
 
-// PATCH /api/sessions/[id]/video-note — update one video's note + optional timestamp (captain only)
+// PATCH /api/sessions/[id]/video-note — captain only
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const token = req.cookies.get(COOKIE_NAME)?.value
-  if (!token || !(await verifyToken(token))) {
+  const payload = await getTokenPayload(req)
+  if (!payload || payload.role !== 'captain') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

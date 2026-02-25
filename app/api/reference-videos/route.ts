@@ -1,7 +1,6 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { verifyToken, COOKIE_NAME } from '@/lib/auth'
-import { cookies } from 'next/headers'
+import { getTokenPayload } from '@/lib/auth'
 
 export async function GET() {
   const { data, error } = await supabase
@@ -13,14 +12,11 @@ export async function GET() {
   return NextResponse.json(data ?? [])
 }
 
-export async function POST(req: Request) {
-  const cookieStore = await cookies()
-  const token = cookieStore.get(COOKIE_NAME)?.value
-  if (!token || !(await verifyToken(token))) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+export async function POST(req: NextRequest) {
+  const payload = await getTokenPayload(req)
+  if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { title, type, video_ref, note_timestamp } = await req.json()
+  const { title, type, video_ref, note_timestamp, folder_id } = await req.json()
   if (!title?.trim() || !type || !video_ref?.trim()) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   }
@@ -32,6 +28,7 @@ export async function POST(req: Request) {
       type,
       video_ref: video_ref.trim(),
       note_timestamp: note_timestamp ?? null,
+      folder_id: folder_id ?? null,
     })
     .select()
     .single()
