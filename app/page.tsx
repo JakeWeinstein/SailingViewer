@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { Anchor, Loader2, Heart, MessageCircle, Play, ChevronDown, ChevronRight } from 'lucide-react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { Anchor, Loader2, Heart, MessageCircle, Play, ChevronDown, ChevronRight, BookOpen } from 'lucide-react'
 import NamePrompt from '@/components/NamePrompt'
 import VideoWatchView from '@/components/VideoWatchView'
+import ReferenceManager from '@/components/ReferenceManager'
 import { thumbnailUrl, type SessionVideo } from '@/lib/types'
 import type { Comment } from '@/lib/supabase'
 import clsx from 'clsx'
@@ -19,6 +20,7 @@ interface BrowseSession {
 const NAME_KEY = 'telltale_name'
 const FAV_KEY = 'telltale_favorites'
 
+type MainView = 'sessions' | 'reference'
 type Filter = 'all' | 'discussed' | 'favorites'
 
 function loadFavorites(): Set<string> {
@@ -42,6 +44,7 @@ export default function TeamFormPage() {
   const [comments, setComments] = useState<Comment[]>([])
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [watchTarget, setWatchTarget] = useState<WatchTarget | null>(null)
+  const [mainView, setMainView] = useState<MainView>('sessions')
   const [filter, setFilter] = useState<Filter>('all')
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
 
@@ -214,17 +217,49 @@ export default function TeamFormPage() {
             </button>
           )}
         </div>
+
+        {/* Main nav */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex gap-1 -mb-px">
+          {([
+            { key: 'sessions', label: 'Sessions', icon: null },
+            { key: 'reference', label: 'Reference', icon: <BookOpen className="h-3.5 w-3.5" /> },
+          ] as { key: MainView; label: string; icon: React.ReactNode }[]).map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setMainView(tab.key)}
+              className={clsx(
+                'flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors',
+                mainView === tab.key
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              )}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-10">
-        {loading && (
+
+        {/* ── Reference Library ── */}
+        {mainView === 'reference' && userName && (
+          <ReferenceManager
+            isCaptain={false}
+            userName={userName}
+            activeSessionId={activeSession?.id}
+          />
+        )}
+
+        {mainView === 'sessions' && loading && (
           <div className="flex items-center justify-center py-24 gap-2 text-gray-400">
             <Loader2 className="h-5 w-5 animate-spin" />
             <span className="text-sm">Loading…</span>
           </div>
         )}
 
-        {!loading && sessions.length === 0 && (
+        {mainView === 'sessions' && !loading && sessions.length === 0 && (
           <div className="text-center py-24">
             <Anchor className="mx-auto mb-3 h-10 w-10 text-gray-300" />
             <h2 className="text-lg font-semibold text-gray-600">No sessions yet</h2>
@@ -232,7 +267,7 @@ export default function TeamFormPage() {
           </div>
         )}
 
-        {!loading && sessions.length > 0 && (
+        {mainView === 'sessions' && !loading && sessions.length > 0 && (
           <>
             {/* Recently discussed — across all sessions */}
             {discussedVideos.length > 0 && (

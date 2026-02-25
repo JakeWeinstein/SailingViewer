@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { X, ExternalLink, Heart, Send, Shield, Pencil, Check, Clock } from 'lucide-react'
-import { embedUrl, type SessionVideo } from '@/lib/types'
+import { embedUrl, youtubeEmbedUrl, type SessionVideo } from '@/lib/types'
 import type { Comment } from '@/lib/supabase'
 import clsx from 'clsx'
 
 interface VideoWatchViewProps {
   video: SessionVideo
-  sessionId: string          // session the video belongs to
+  sessionId: string          // session the video belongs to (empty string for reference videos)
   activeSessionId?: string   // current active session — captain submissions go here
   userName: string
   isCaptain?: boolean
@@ -16,6 +16,10 @@ interface VideoWatchViewProps {
   onFavoriteToggle?: () => void
   onClose: () => void
   onNoteUpdated?: (videoId: string, note: string, noteTimestamp?: number) => void
+  // Reference video / YouTube support
+  mediaId?: string           // actual Drive file ID or YouTube video ID (overrides video.id for embed/comments)
+  videoType?: 'drive' | 'youtube'
+  noteApiPath?: string       // if set, PATCH this endpoint instead of the session note endpoint
 }
 
 function formatTime(s: number) {
@@ -61,10 +65,25 @@ function avatarColor(name: string) {
 export default function VideoWatchView({
   video, sessionId, activeSessionId, userName, isCaptain = false,
   isFavorited = false, onFavoriteToggle, onClose, onNoteUpdated,
+  mediaId, videoType = 'drive', noteApiPath,
 }: VideoWatchViewProps) {
+  const effectiveMediaId = mediaId ?? video.id
+
   const [comments, setComments] = useState<Comment[]>([])
   const [loadingComments, setLoadingComments] = useState(true)
-  const [iframeSrc, setIframeSrc] = useState(embedUrl(video.id))
+  const [iframeSrc, setIframeSrc] = useState(() =>
+    videoType === 'youtube'
+      ? youtubeEmbedUrl(effectiveMediaId)
+      : embedUrl(effectiveMediaId)
+  )
+
+  function seekTo(seconds: number) {
+    if (videoType === 'youtube') {
+      setIframeSrc(`https://www.youtube.com/embed/${effectiveMediaId}?start=${seconds}&autoplay=1`)
+    } else {
+      setIframeSrc(`${embedUrl(effectiveMediaId)}#t=${seconds}`)
+    }
+  }
 
   // Comment composer
   const [commentText, setCommentText] = useState('')
@@ -91,7 +110,7 @@ export default function VideoWatchView({
 
   useEffect(() => {
     setLoadingComments(true)
-    fetch(`/api/comments?videoId=${video.id}`)
+    fetch(`/api/comments?videoId=${effectiveMediaId}`)
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setComments(data) })
       .finally(() => setLoadingComments(false))
@@ -113,8 +132,8 @@ export default function VideoWatchView({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          session_id: targetSessionId,
-          video_id: video.id,
+          session_id: targetSessionId || undefined,
+          video_id: effectiveMediaId,
           video_title: video.name,
           author_name: userName,
           timestamp_seconds: parsedTimestamp,
@@ -139,14 +158,14 @@ export default function VideoWatchView({
     if (noteTimestampInvalid) return
     setSavingNote(true)
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/video-note`, {
+      const endpoint = noteApiPath ?? `/api/sessions/${sessionId}/video-note`
+      const payload = noteApiPath
+        ? { note: noteText, noteTimestamp: parsedNoteTimestamp ?? undefined }
+        : { videoId: video.id, note: noteText, noteTimestamp: parsedNoteTimestamp ?? undefined }
+      const res = await fetch(endpoint, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          videoId: video.id,
-          note: noteText,
-          noteTimestamp: parsedNoteTimestamp ?? undefined,
-        }),
+        body: JSON.stringify(payload),
       })
       if (res.ok) {
         onNoteUpdated?.(video.id, noteText, parsedNoteTimestamp ?? undefined)
@@ -282,7 +301,7 @@ export default function VideoWatchView({
                 <div className="space-y-1">
                   {video.noteTimestamp != null && (
                     <button
-                      onClick={() => setIframeSrc(`${embedUrl(video.id)}#t=${video.noteTimestamp}`)}
+                      onClick={() => seekTo(video.noteTimestamp!)}
                       className="flex items-center gap-1 px-2 py-0.5 bg-amber-500 text-white text-xs font-mono font-bold rounded-full hover:bg-amber-600 active:scale-95 transition-all"
                       title="Jump to this moment"
                     >
@@ -303,7 +322,7 @@ export default function VideoWatchView({
               <p className="text-xs font-semibold text-amber-700 mb-1">📝 Captain&apos;s note</p>
               {video.noteTimestamp != null && (
                 <button
-                  onClick={() => setIframeSrc(`${embedUrl(video.id)}#t=${video.noteTimestamp}`)}
+                  onClick={() => seekTo(video.noteTimestamp!)}
                   className="flex items-center gap-1 px-2 py-0.5 mb-1 bg-amber-500 text-white text-xs font-mono font-bold rounded-full hover:bg-amber-600 active:scale-95 transition-all"
                   title="Jump to this moment"
                 >
@@ -394,7 +413,7 @@ export default function VideoWatchView({
                     <span className="text-xs font-semibold text-gray-800">{c.author_name}</span>
                     {c.timestamp_seconds != null && (
                       <button
-                        onClick={() => setIframeSrc(`${embedUrl(video.id)}#t=${c.timestamp_seconds}`)}
+                        onClick={() => seekTo(c.timestamp_seconds!)}
                         title="Jump to this moment"
                         className="flex items-center gap-1 px-2 py-0.5 bg-blue-600 text-white text-xs font-mono font-bold rounded-full hover:bg-blue-700 active:scale-95 transition-all"
                       >

@@ -31,7 +31,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { session_id, video_id, video_title, author_name, timestamp_seconds, comment_text, send_to_captain } = body
 
-  if (!session_id || !video_id || !video_title || !author_name?.trim() || !comment_text?.trim()) {
+  // session_id may be null for reference video comments
+  if (!video_id || !video_title || !author_name?.trim() || !comment_text?.trim()) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 

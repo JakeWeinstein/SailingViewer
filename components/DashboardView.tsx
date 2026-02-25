@@ -3,16 +3,18 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronDown, ChevronRight, Film, LogOut, Shield,
-  MessageSquare, Play, Grid3x3
+  MessageSquare, Play, Grid3x3, BookOpen
 } from 'lucide-react'
 import SessionManager from './SessionManager'
 import VideoManager from './VideoManager'
 import VideoWatchView from './VideoWatchView'
+import ReferenceManager from './ReferenceManager'
 import type { Session, Comment } from '@/lib/supabase'
 import type { SessionVideo } from '@/lib/types'
 import { thumbnailUrl } from '@/lib/types'
 import clsx from 'clsx'
 
+type SidebarView = 'session' | 'reference'
 type MainTab = 'review' | 'videos'
 
 function formatTime(s: number) {
@@ -37,6 +39,7 @@ export default function DashboardView({ initialSessions }: { initialSessions: Se
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     initialSessions.find((s) => s.is_active)?.id ?? initialSessions[0]?.id ?? null
   )
+  const [sidebarView, setSidebarView] = useState<SidebarView>('session')
   const [mainTab, setMainTab] = useState<MainTab>('review')
   const [reviewComments, setReviewComments] = useState<Comment[]>([])
   const [loadingReview, setLoadingReview] = useState(false)
@@ -118,14 +121,28 @@ export default function DashboardView({ initialSessions }: { initialSessions: Se
         </div>
 
         <div className="flex-1 overflow-y-auto py-3">
+          {/* Reference Library link */}
+          <button
+            onClick={() => setSidebarView('reference')}
+            className={clsx(
+              'w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2 mb-2',
+              sidebarView === 'reference'
+                ? 'bg-blue-50 text-blue-700 font-medium border-r-2 border-blue-600'
+                : 'text-gray-600 hover:bg-gray-50'
+            )}
+          >
+            <BookOpen className="h-4 w-4 shrink-0" />
+            Reference Library
+          </button>
+
           <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Sessions</p>
           {sessions.map((session) => (
             <button
               key={session.id}
-              onClick={() => setSelectedSessionId(session.id)}
+              onClick={() => { setSelectedSessionId(session.id); setSidebarView('session') }}
               className={clsx(
                 'w-full text-left px-4 py-2.5 text-sm transition-colors',
-                selectedSessionId === session.id
+                sidebarView === 'session' && selectedSessionId === session.id
                   ? 'bg-blue-50 text-blue-700 font-medium border-r-2 border-blue-600'
                   : 'text-gray-600 hover:bg-gray-50'
               )}
@@ -156,7 +173,19 @@ export default function DashboardView({ initialSessions }: { initialSessions: Se
 
       {/* ── Main ── */}
       <main className="flex-1 overflow-y-auto">
-        {selectedSessionId && selectedSession ? (
+
+        {/* Reference Library view */}
+        {sidebarView === 'reference' && (
+          <div className="max-w-5xl mx-auto px-6 py-6">
+            <ReferenceManager
+              isCaptain={true}
+              userName="Captain"
+              activeSessionId={sessions.find((s) => s.is_active)?.id}
+            />
+          </div>
+        )}
+
+        {sidebarView === 'session' && selectedSessionId && selectedSession ? (
           <div className="max-w-5xl mx-auto px-6 py-6">
 
             {/* Session header */}
@@ -365,14 +394,14 @@ export default function DashboardView({ initialSessions }: { initialSessions: Se
               </>
             )}
           </div>
-        ) : (
+        ) : sidebarView === 'session' ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-gray-400">
               <MessageSquare className="mx-auto mb-3 h-10 w-10 opacity-30" />
               <p className="text-sm">Select a session or create a new one.</p>
             </div>
           </div>
-        )}
+        ) : null}
       </main>
 
       {/* Video watch + comment panel (captain view) */}
