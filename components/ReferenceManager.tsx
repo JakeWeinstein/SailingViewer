@@ -144,13 +144,9 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
     if (res.ok) setVideos((prev) => prev.filter((v) => v.id !== id))
   }
 
-  function handleNoteUpdated(dbId: string, note: string, noteTimestamp?: number) {
-    setVideos((prev) => prev.map((v) =>
-      v.id === dbId ? { ...v, note, note_timestamp: noteTimestamp } : v
-    ))
-    setWatchTarget((prev) =>
-      prev && prev.id === dbId ? { ...prev, note, note_timestamp: noteTimestamp } : prev
-    )
+  function handleNotesUpdated(dbId: string, notes: import('@/lib/types').VideoNote[]) {
+    setVideos((prev) => prev.map((v) => v.id === dbId ? { ...v, notes } : v))
+    setWatchTarget((prev) => prev && prev.id === dbId ? { ...prev, notes } : prev)
   }
 
   // Organize videos into folder hierarchy
@@ -481,6 +477,7 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
             name: watchTarget.title,
             note: watchTarget.note,
             noteTimestamp: watchTarget.note_timestamp,
+            notes: watchTarget.notes,
           }}
           sessionId=""
           activeSessionId={activeSessionId}
@@ -489,7 +486,7 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
           noteApiPath={isCaptain ? `/api/reference-videos/${watchTarget.id}` : undefined}
           userName={userName}
           isCaptain={isCaptain}
-          onNoteUpdated={isCaptain ? handleNoteUpdated : undefined}
+          onNotesUpdated={isCaptain ? handleNotesUpdated : undefined}
           onClose={() => setWatchTarget(null)}
         />
       )}

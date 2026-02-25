@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const payload = await getTokenPayload(req)
   if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { title, blocks } = await req.json()
+  const { title, blocks, folder_id } = await req.json()
   if (!title?.trim()) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
 
   const { data, error } = await supabase
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
       author_name: payload.userName ?? 'Unknown',
       blocks: blocks ?? [],
       is_published: false,
+      folder_id: folder_id ?? null,
     })
     .select()
     .single()

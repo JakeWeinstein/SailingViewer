@@ -28,6 +28,7 @@ export async function PATCH(
   const updates: Record<string, unknown> = {}
   if ('note' in body) updates.note = body.note ?? null
   if ('noteTimestamp' in body) updates.note_timestamp = body.noteTimestamp ?? null
+  if ('notes' in body) updates.notes = body.notes ?? []
   if ('folder_id' in body) updates.folder_id = body.folder_id ?? null
   if ('title' in body) updates.title = body.title
   if ('type' in body) updates.type = body.type

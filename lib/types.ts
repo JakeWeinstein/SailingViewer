@@ -1,8 +1,16 @@
+export type VideoNote = {
+  text: string
+  timestamp?: number  // seconds
+}
+
 export type SessionVideo = {
   id: string
   name: string
+  // Legacy single-note fields (backward compat)
   note?: string
-  noteTimestamp?: number  // seconds — captain can pin a timecode to the note
+  noteTimestamp?: number
+  // New: multiple notes
+  notes?: VideoNote[]
 }
 
 export type ReferenceVideo = {
@@ -10,8 +18,9 @@ export type ReferenceVideo = {
   title: string
   type: 'drive' | 'youtube'
   video_ref: string    // Drive file ID or YouTube video ID
-  note?: string
+  note?: string        // legacy single note
   note_timestamp?: number
+  notes?: VideoNote[]  // new multiple notes
   folder_id?: string | null
   created_at: string
 }
@@ -27,7 +36,17 @@ export type ReferenceFolder = {
 
 export type ArticleBlock =
   | { type: 'text'; content: string }
-  | { type: 'video'; referenceVideoId: string; caption?: string }
+  | {
+      type: 'video'
+      // Self-contained video info (preferred):
+      videoType?: 'drive' | 'youtube'
+      videoRef?: string
+      title?: string
+      startSeconds?: number
+      // Legacy: look up from reference_videos table:
+      referenceVideoId?: string
+      caption?: string
+    }
 
 export type Article = {
   id: string
@@ -36,6 +55,7 @@ export type Article = {
   author_name: string
   blocks: ArticleBlock[]
   is_published: boolean
+  folder_id?: string | null
   created_at: string
   updated_at: string
 }

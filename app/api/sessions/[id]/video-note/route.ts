@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { getTokenPayload } from '@/lib/auth'
-import type { SessionVideo } from '@/lib/types'
+import type { SessionVideo, VideoNote } from '@/lib/types'
 
 // PATCH /api/sessions/[id]/video-note — captain only
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -11,7 +11,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const { id } = await params
-  const { videoId, note, noteTimestamp } = await req.json()
+  const body = await req.json()
+  const { videoId, notes } = body
 
   const { data: session, error: fetchError } = await supabase
     .from('sessions')
@@ -23,9 +24,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const videos = (session.videos as SessionVideo[]).map((v) => {
     if (v.id !== videoId) return v
-    const updated: SessionVideo = { ...v, note: note ?? '' }
-    if (noteTimestamp != null) updated.noteTimestamp = noteTimestamp
-    else delete updated.noteTimestamp
+    const updated: SessionVideo = { ...v }
+    // New array-based notes
+    if (Array.isArray(notes)) {
+      updated.notes = notes as VideoNote[]
+      // Clear legacy fields
+      delete updated.note
+      delete updated.noteTimestamp
+    }
     return updated
   })
 

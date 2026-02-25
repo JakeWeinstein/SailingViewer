@@ -1,31 +1,31 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { X, ExternalLink, Heart, Send, Shield, Pencil, Check, Clock } from 'lucide-react'
-import { embedUrl, youtubeEmbedUrl, type SessionVideo } from '@/lib/types'
+import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock } from 'lucide-react'
+import { embedUrl, youtubeEmbedUrl, type SessionVideo, type VideoNote } from '@/lib/types'
 import type { Comment } from '@/lib/supabase'
 import clsx from 'clsx'
 
 interface VideoWatchViewProps {
   video: SessionVideo
-  sessionId: string          // session the video belongs to (empty string for reference videos)
-  activeSessionId?: string   // current active session — captain submissions go here
+  sessionId: string
+  activeSessionId?: string
   userName: string
   isCaptain?: boolean
   isFavorited?: boolean
   onFavoriteToggle?: () => void
   onClose: () => void
-  onNoteUpdated?: (videoId: string, note: string, noteTimestamp?: number) => void
+  onNotesUpdated?: (videoId: string, notes: VideoNote[]) => void
   // Reference video / YouTube support
-  mediaId?: string           // actual Drive file ID or YouTube video ID (overrides video.id for embed/comments)
+  mediaId?: string
   videoType?: 'drive' | 'youtube'
-  noteApiPath?: string       // if set, PATCH this endpoint instead of the session note endpoint
+  noteApiPath?: string
+  // Legacy callback (kept for callers that haven't migrated)
+  onNoteUpdated?: (videoId: string, note: string, noteTimestamp?: number) => void
 }
 
 function formatTime(s: number) {
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  const sec = s % 60
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
   return `${m}:${String(sec).padStart(2, '0')}`
 }
@@ -35,6 +35,8 @@ function parseTimestamp(raw: string): number | null {
   if (hms) return +hms[1] * 3600 + +hms[2] * 60 + +hms[3]
   const ms = raw.match(/^(\d{1,2}):(\d{2})$/)
   if (ms && +ms[2] < 60) return +ms[1] * 60 + +ms[2]
+  const secs = raw.match(/^(\d+)s?$/)
+  if (secs) return +secs[1]
   return null
 }
 
@@ -64,7 +66,7 @@ function avatarColor(name: string) {
 
 export default function VideoWatchView({
   video, sessionId, activeSessionId, userName, isCaptain = false,
-  isFavorited = false, onFavoriteToggle, onClose, onNoteUpdated,
+  isFavorited = false, onFavoriteToggle, onClose, onNotesUpdated, onNoteUpdated,
   mediaId, videoType = 'drive', noteApiPath,
 }: VideoWatchViewProps) {
   const effectiveMediaId = mediaId ?? video.id
@@ -76,6 +78,22 @@ export default function VideoWatchView({
       ? youtubeEmbedUrl(effectiveMediaId)
       : embedUrl(effectiveMediaId)
   )
+
+  // Resolve notes — support both new array format and legacy single note
+  function resolveNotes(v: SessionVideo): VideoNote[] {
+    if (v.notes && v.notes.length > 0) return v.notes
+    if (v.note) return [{ text: v.note, timestamp: v.noteTimestamp }]
+    return []
+  }
+
+  const [notes, setNotes] = useState<VideoNote[]>(() => resolveNotes(video))
+  const [addingNote, setAddingNote] = useState(false)
+  const [newNoteText, setNewNoteText] = useState('')
+  const [newNoteTimestampRaw, setNewNoteTimestampRaw] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+
+  const parsedNewTimestamp = parseTimestamp(newNoteTimestampRaw)
+  const newTimestampInvalid = newNoteTimestampRaw.trim() !== '' && parsedNewTimestamp === null
 
   function seekTo(seconds: number) {
     if (videoType === 'youtube') {
@@ -90,14 +108,6 @@ export default function VideoWatchView({
   const [timestampRaw, setTimestampRaw] = useState('')
   const [sendToCaptain, setSendToCaptain] = useState(false)
   const [posting, setPosting] = useState(false)
-
-  // Captain note
-  const [editingNote, setEditingNote] = useState(false)
-  const [noteText, setNoteText] = useState(video.note ?? '')
-  const [noteTimestampRaw, setNoteTimestampRaw] = useState(
-    video.noteTimestamp != null ? formatTime(video.noteTimestamp) : ''
-  )
-  const [savingNote, setSavingNote] = useState(false)
 
   const backdropRef = useRef<HTMLDivElement>(null)
   const threadRef = useRef<HTMLDivElement>(null)
@@ -114,17 +124,58 @@ export default function VideoWatchView({
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setComments(data) })
       .finally(() => setLoadingComments(false))
-  }, [video.id])
+  }, [video.id, effectiveMediaId])
 
   const parsedTimestamp = parseTimestamp(timestampRaw)
   const timestampInvalid = timestampRaw.trim() !== '' && parsedTimestamp === null
 
-  const parsedNoteTimestamp = parseTimestamp(noteTimestampRaw)
-  const noteTimestampInvalid = noteTimestampRaw.trim() !== '' && parsedNoteTimestamp === null
+  async function persistNotes(nextNotes: VideoNote[]) {
+    setSavingNote(true)
+    try {
+      const endpoint = noteApiPath ?? `/api/sessions/${sessionId}/video-note`
+      const payload = noteApiPath
+        ? { notes: nextNotes }
+        : { videoId: video.id, notes: nextNotes }
+      const res = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (res.ok) {
+        setNotes(nextNotes)
+        onNotesUpdated?.(video.id, nextNotes)
+        // Legacy callback compat
+        onNoteUpdated?.(video.id, nextNotes[0]?.text ?? '', nextNotes[0]?.timestamp)
+      }
+    } finally {
+      setSavingNote(false)
+    }
+  }
+
+  async function handleAddNote() {
+    if (!newNoteText.trim() || newTimestampInvalid) return
+    const newNote: VideoNote = {
+      text: newNoteText.trim(),
+      ...(parsedNewTimestamp != null ? { timestamp: parsedNewTimestamp } : {}),
+    }
+    const sorted = [...notes, newNote].sort((a, b) => {
+      if (a.timestamp != null && b.timestamp != null) return a.timestamp - b.timestamp
+      if (a.timestamp != null) return -1
+      if (b.timestamp != null) return 1
+      return 0
+    })
+    await persistNotes(sorted)
+    setNewNoteText('')
+    setNewNoteTimestampRaw('')
+    setAddingNote(false)
+  }
+
+  async function handleDeleteNote(idx: number) {
+    await persistNotes(notes.filter((_, i) => i !== idx))
+  }
 
   async function postComment() {
     if (!commentText.trim() || timestampInvalid) return
-    // If sending to captain, use the active session so it appears in the current review queue
     const targetSessionId = sendToCaptain && activeSessionId ? activeSessionId : sessionId
     setPosting(true)
     try {
@@ -154,34 +205,14 @@ export default function VideoWatchView({
     }
   }
 
-  async function saveNote() {
-    if (noteTimestampInvalid) return
-    setSavingNote(true)
-    try {
-      const endpoint = noteApiPath ?? `/api/sessions/${sessionId}/video-note`
-      const payload = noteApiPath
-        ? { note: noteText, noteTimestamp: parsedNoteTimestamp ?? undefined }
-        : { videoId: video.id, note: noteText, noteTimestamp: parsedNoteTimestamp ?? undefined }
-      const res = await fetch(endpoint, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (res.ok) {
-        onNoteUpdated?.(video.id, noteText, parsedNoteTimestamp ?? undefined)
-        setEditingNote(false)
-      }
-    } finally {
-      setSavingNote(false)
-    }
-  }
-
   const sorted = [...comments].sort((a, b) => {
     if (a.timestamp_seconds != null && b.timestamp_seconds != null) return a.timestamp_seconds - b.timestamp_seconds
     if (a.timestamp_seconds != null) return -1
     if (b.timestamp_seconds != null) return 1
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   })
+
+  const hasNotes = notes.length > 0
 
   return (
     <div
@@ -198,7 +229,7 @@ export default function VideoWatchView({
           <X className="h-4 w-4" />
         </button>
 
-        {/* ── Left: Video — sets the dialog height on desktop ── */}
+        {/* ── Left: Video ── */}
         <div className="w-full md:w-[65%] bg-black flex flex-col">
           <div className="aspect-video w-full">
             <iframe
@@ -213,14 +244,16 @@ export default function VideoWatchView({
           <div className="bg-gray-900 px-4 py-2.5 flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-white text-sm font-semibold truncate">{video.name}</p>
-              <a
-                href={`https://drive.google.com/file/d/${video.id}/view`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-blue-400 hover:underline flex items-center gap-1"
-              >
-                <ExternalLink className="h-3 w-3" />Open in Drive
-              </a>
+              {videoType === 'drive' && (
+                <a
+                  href={`https://drive.google.com/file/d/${effectiveMediaId}/view`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-400 hover:underline flex items-center gap-1"
+                >
+                  <ExternalLink className="h-3 w-3" />Open in Drive
+                </a>
+              )}
             </div>
             {onFavoriteToggle && (
               <button onClick={onFavoriteToggle} title={isFavorited ? 'Unfavorite' : 'Favorite'}>
@@ -230,106 +263,104 @@ export default function VideoWatchView({
           </div>
         </div>
 
-        {/* ── Right: absolutely fills the height set by the left panel ── */}
+        {/* ── Right panel ── */}
         <div className="flex-1 md:absolute md:inset-y-0 md:right-0 md:w-[35%] flex flex-col overflow-hidden border-l border-gray-100">
 
-          {/* Captain note — editable by captain */}
-          {isCaptain && (
-            <div className="border-b border-amber-100 bg-amber-50 px-4 py-3 shrink-0">
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-xs font-semibold text-amber-700">📝 Captain&apos;s note</p>
-                {!editingNote && (
+          {/* Captain notes section */}
+          {(isCaptain || hasNotes) && (
+            <div className="border-b border-amber-100 bg-amber-50 px-4 py-3 shrink-0 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-amber-700">
+                  📝 Captain&apos;s notes {notes.length > 0 && <span className="font-normal text-amber-500">({notes.length})</span>}
+                </p>
+                {isCaptain && !addingNote && (
                   <button
-                    onClick={() => setEditingNote(true)}
+                    onClick={() => setAddingNote(true)}
                     className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 transition-colors"
                   >
-                    <Pencil className="h-3 w-3" />
-                    {noteText ? 'Edit' : 'Add note'}
+                    <Plus className="h-3 w-3" />
+                    Add note
                   </button>
                 )}
               </div>
 
-              {editingNote ? (
+              {/* Existing notes list */}
+              {notes.length > 0 && (
                 <div className="space-y-2">
+                  {notes.map((n, i) => (
+                    <div key={i} className="flex items-start gap-2 group">
+                      {n.timestamp != null && (
+                        <button
+                          onClick={() => seekTo(n.timestamp!)}
+                          className="shrink-0 flex items-center gap-1 px-2 py-0.5 bg-amber-500 text-white text-xs font-mono font-bold rounded-full hover:bg-amber-600 active:scale-95 transition-all mt-0.5"
+                          title="Jump to this moment"
+                        >
+                          ▶ {formatTime(n.timestamp)}
+                        </button>
+                      )}
+                      <p className="flex-1 text-xs text-amber-800 leading-relaxed">{n.text}</p>
+                      {isCaptain && (
+                        <button
+                          onClick={() => handleDeleteNote(i)}
+                          disabled={savingNote}
+                          className="shrink-0 opacity-0 group-hover:opacity-100 p-0.5 text-amber-300 hover:text-red-400 disabled:opacity-30 transition-all mt-0.5"
+                          title="Delete note"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!hasNotes && !addingNote && (
+                <p className="text-xs text-amber-400 italic">No notes yet.</p>
+              )}
+
+              {/* Add note form */}
+              {addingNote && (
+                <div className="space-y-2 pt-1">
                   <textarea
-                    value={noteText}
-                    onChange={(e) => setNoteText(e.target.value)}
-                    rows={3}
+                    value={newNoteText}
+                    onChange={(e) => setNewNoteText(e.target.value)}
+                    rows={2}
                     autoFocus
-                    placeholder="Add a note visible to all teammates…"
+                    placeholder="Note text…"
                     className="w-full text-xs px-2.5 py-2 border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
                   />
-                  {/* Note timestamp */}
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                      <input
-                        type="text"
-                        value={noteTimestampRaw}
-                        onChange={(e) => setNoteTimestampRaw(e.target.value)}
-                        placeholder="Timestamp (optional) — e.g. 1:23"
-                        className={clsx(
-                          'flex-1 px-2.5 py-1.5 border rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-400',
-                          noteTimestampInvalid ? 'border-red-300 bg-red-50' : 'border-amber-200 bg-white'
-                        )}
-                      />
-                    </div>
-                    {noteTimestampInvalid && <p className="text-xs text-red-500 pl-5">Use M:SS or H:MM:SS format</p>}
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                    <input
+                      type="text"
+                      value={newNoteTimestampRaw}
+                      onChange={(e) => setNewNoteTimestampRaw(e.target.value)}
+                      placeholder="Timestamp (optional) — 1:23 or 83"
+                      className={clsx(
+                        'flex-1 px-2.5 py-1.5 border rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-400',
+                        newTimestampInvalid ? 'border-red-300 bg-red-50' : 'border-amber-200 bg-white'
+                      )}
+                    />
                   </div>
+                  {newTimestampInvalid && <p className="text-xs text-red-500">Use M:SS, H:MM:SS, or seconds</p>}
                   <div className="flex gap-2">
                     <button
-                      onClick={saveNote}
-                      disabled={savingNote || noteTimestampInvalid}
+                      onClick={handleAddNote}
+                      disabled={savingNote || !newNoteText.trim() || newTimestampInvalid}
                       className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 disabled:opacity-50 transition-colors"
                     >
                       <Check className="h-3 w-3" />
-                      {savingNote ? 'Saving…' : 'Save note'}
+                      {savingNote ? 'Saving…' : 'Add'}
                     </button>
                     <button
-                      onClick={() => {
-                        setEditingNote(false)
-                        setNoteText(video.note ?? '')
-                        setNoteTimestampRaw(video.noteTimestamp != null ? formatTime(video.noteTimestamp) : '')
-                      }}
+                      onClick={() => { setAddingNote(false); setNewNoteText(''); setNewNoteTimestampRaw('') }}
                       className="px-3 py-1.5 text-xs text-gray-500 hover:bg-amber-100 rounded-lg transition-colors"
                     >
                       Cancel
                     </button>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-1">
-                  {video.noteTimestamp != null && (
-                    <button
-                      onClick={() => seekTo(video.noteTimestamp!)}
-                      className="flex items-center gap-1 px-2 py-0.5 bg-amber-500 text-white text-xs font-mono font-bold rounded-full hover:bg-amber-600 active:scale-95 transition-all"
-                      title="Jump to this moment"
-                    >
-                      ▶ {formatTime(video.noteTimestamp)}
-                    </button>
-                  )}
-                  <p className={clsx('text-xs leading-relaxed', noteText ? 'text-amber-800' : 'text-amber-400 italic')}>
-                    {noteText || 'No note yet.'}
-                  </p>
-                </div>
               )}
-            </div>
-          )}
-
-          {/* Captain note — read-only for teammates */}
-          {!isCaptain && video.note && (
-            <div className="border-b border-amber-100 bg-amber-50 px-4 py-2.5 shrink-0">
-              <p className="text-xs font-semibold text-amber-700 mb-1">📝 Captain&apos;s note</p>
-              {video.noteTimestamp != null && (
-                <button
-                  onClick={() => seekTo(video.noteTimestamp!)}
-                  className="flex items-center gap-1 px-2 py-0.5 mb-1 bg-amber-500 text-white text-xs font-mono font-bold rounded-full hover:bg-amber-600 active:scale-95 transition-all"
-                  title="Jump to this moment"
-                >
-                  ▶ {formatTime(video.noteTimestamp)}
-                </button>
-              )}
-              <p className="text-xs text-amber-800 leading-relaxed">{video.note}</p>
             </div>
           )}
 
@@ -351,7 +382,6 @@ export default function VideoWatchView({
               className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
 
-            {/* Optional timestamp */}
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <Clock className="h-3.5 w-3.5 text-gray-400 shrink-0" />
@@ -372,7 +402,6 @@ export default function VideoWatchView({
               )}
             </div>
 
-            {/* Send to captain */}
             <label className="flex items-center gap-2 cursor-pointer group">
               <input
                 type="checkbox"

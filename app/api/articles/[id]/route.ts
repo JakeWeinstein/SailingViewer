@@ -48,6 +48,7 @@ export async function PATCH(
   if ('title' in body) updates.title = body.title?.trim()
   if ('blocks' in body) updates.blocks = body.blocks
   if ('is_published' in body) updates.is_published = body.is_published
+  if ('folder_id' in body) updates.folder_id = body.folder_id ?? null
 
   const { data, error } = await supabase
     .from('articles')

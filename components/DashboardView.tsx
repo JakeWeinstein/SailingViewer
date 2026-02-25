@@ -12,8 +12,7 @@ import ReferenceManager from './ReferenceManager'
 import VideoUploader from './VideoUploader'
 import ArticleEditor from './ArticleEditor'
 import type { Session, Comment } from '@/lib/supabase'
-import type { SessionVideo } from '@/lib/types'
-import type { Article } from '@/lib/types'
+import type { SessionVideo, VideoNote, Article, ReferenceFolder } from '@/lib/types'
 import { thumbnailUrl } from '@/lib/types'
 import clsx from 'clsx'
 
@@ -60,6 +59,7 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
 
   // Articles state
   const [articles, setArticles] = useState<Article[]>([])
+  const [articleFolders, setArticleFolders] = useState<ReferenceFolder[]>([])
   const [articlesLoading, setArticlesLoading] = useState(false)
   const [editingArticle, setEditingArticle] = useState<Article | null | 'new'>(null)
 
@@ -82,14 +82,17 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
   // Reset review filter when session changes
   useEffect(() => { setReviewUserFilter('all') }, [selectedSessionId])
 
-  // Fetch articles when articles view is selected
+  // Fetch articles + folders when articles view is selected
   useEffect(() => {
     if (sidebarView === 'articles' && articles.length === 0) {
       setArticlesLoading(true)
-      fetch('/api/articles?drafts=true')
-        .then((r) => r.json())
-        .then((data) => { if (Array.isArray(data)) setArticles(data) })
-        .finally(() => setArticlesLoading(false))
+      Promise.all([
+        fetch('/api/articles?drafts=true').then((r) => r.json()),
+        fetch('/api/reference-folders').then((r) => r.json()),
+      ]).then(([arts, flds]) => {
+        if (Array.isArray(arts)) setArticles(arts)
+        if (Array.isArray(flds)) setArticleFolders(flds)
+      }).finally(() => setArticlesLoading(false))
     }
   }, [sidebarView, articles.length])
 
@@ -116,13 +119,13 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
     })
   }
 
-  function handleNoteUpdated(videoId: string, note: string) {
+  function handleNotesUpdated(videoId: string, notes: VideoNote[]) {
     setSessions((prev) => prev.map((s) =>
       s.id === watchTarget?.sessionId
-        ? { ...s, videos: s.videos.map((v) => v.id === videoId ? { ...v, note } : v) }
+        ? { ...s, videos: s.videos.map((v) => v.id === videoId ? { ...v, notes } : v) }
         : s
     ))
-    setWatchTarget((prev) => prev ? { ...prev, video: { ...prev.video, note } } : prev)
+    setWatchTarget((prev) => prev ? { ...prev, video: { ...prev.video, notes } } : prev)
   }
 
   const selectedSession = sessions.find((s) => s.id === selectedSessionId)
@@ -152,6 +155,31 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
       .map((g) => ({ ...g, comments: g.comments.filter((c) => c.author_name === reviewUserFilter) }))
       .filter((g) => g.comments.length > 0)
   }, [reviewGroups, reviewUserFilter])
+
+  function ArticleRow({ article, onEdit }: { article: Article; onEdit: (a: Article) => void }) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-sm font-semibold text-gray-800">{article.title}</h3>
+            {article.is_published
+              ? <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">Published</span>
+              : <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium">Draft</span>
+            }
+          </div>
+          <p className="text-xs text-gray-400 mt-0.5">
+            By {article.author_name} · {article.blocks.length} block{article.blocks.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        <button
+          onClick={() => onEdit(article)}
+          className="shrink-0 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+        >
+          Edit
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -273,6 +301,7 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
               <ArticleEditor
                 article={editingArticle === 'new' ? null : editingArticle}
                 userName={userName}
+                folders={articleFolders}
                 onSaved={(saved) => {
                   setArticles((prev) => {
                     const exists = prev.find((a) => a.id === saved.id)
@@ -305,33 +334,34 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
                     <p className="text-sm mt-1">Write the first team learning article.</p>
                   </div>
                 )}
-                <div className="space-y-3">
-                  {articles.map((article) => (
-                    <div
-                      key={article.id}
-                      className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 flex items-start justify-between gap-4"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-sm font-semibold text-gray-800">{article.title}</h3>
-                          {article.is_published
-                            ? <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">Published</span>
-                            : <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium">Draft</span>
-                          }
+                {/* Articles grouped by folder */}
+                {!articlesLoading && articles.length > 0 && (() => {
+                  const folderGroups = articleFolders.map((f) => ({
+                    folder: f,
+                    items: articles.filter((a) => a.folder_id === f.id),
+                  })).filter((g) => g.items.length > 0)
+                  const unfoldered = articles.filter((a) => !a.folder_id)
+                  return (
+                    <div className="space-y-6">
+                      {folderGroups.map(({ folder, items }) => (
+                        <div key={folder.id}>
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{folder.name}</p>
+                          <div className="space-y-2">
+                            {items.map((article) => <ArticleRow key={article.id} article={article} onEdit={setEditingArticle} />)}
+                          </div>
                         </div>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          By {article.author_name} · {article.blocks.length} block{article.blocks.length !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setEditingArticle(article)}
-                        className="shrink-0 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
-                      >
-                        Edit
-                      </button>
+                      ))}
+                      {unfoldered.length > 0 && (
+                        <div>
+                          {folderGroups.length > 0 && <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Other</p>}
+                          <div className="space-y-2">
+                            {unfoldered.map((article) => <ArticleRow key={article.id} article={article} onEdit={setEditingArticle} />)}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  )
+                })()}
               </div>
             )}
           </div>
@@ -578,7 +608,7 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
           sessionId={watchTarget.sessionId}
           userName={userName}
           isCaptain={isCaptain}
-          onNoteUpdated={isCaptain ? handleNoteUpdated : undefined}
+          onNotesUpdated={isCaptain ? handleNotesUpdated : undefined}
           onClose={() => setWatchTarget(null)}
         />
       )}
