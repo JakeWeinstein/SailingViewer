@@ -12,7 +12,32 @@ export type ReferenceVideo = {
   video_ref: string    // Drive file ID or YouTube video ID
   note?: string
   note_timestamp?: number
+  folder_id?: string | null
   created_at: string
+}
+
+export type ReferenceFolder = {
+  id: string
+  name: string
+  description?: string | null
+  parent_id?: string | null
+  sort_order: number
+  created_at: string
+}
+
+export type ArticleBlock =
+  | { type: 'text'; content: string }
+  | { type: 'video'; referenceVideoId: string; caption?: string }
+
+export type Article = {
+  id: string
+  title: string
+  author_id?: string | null
+  author_name: string
+  blocks: ArticleBlock[]
+  is_published: boolean
+  created_at: string
+  updated_at: string
 }
 
 export function thumbnailUrl(id: string) {

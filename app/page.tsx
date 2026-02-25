@@ -1,13 +1,15 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { Anchor, Loader2, Heart, MessageCircle, Play, ChevronDown, ChevronRight, BookOpen } from 'lucide-react'
+import { Anchor, Loader2, Heart, MessageCircle, Play, ChevronDown, ChevronRight, BookOpen, GraduationCap } from 'lucide-react'
 import NamePrompt from '@/components/NamePrompt'
 import VideoWatchView from '@/components/VideoWatchView'
 import ReferenceManager from '@/components/ReferenceManager'
-import { thumbnailUrl, type SessionVideo } from '@/lib/types'
+import ArticleViewer from '@/components/ArticleViewer'
+import { thumbnailUrl, type SessionVideo, type Article } from '@/lib/types'
 import type { Comment } from '@/lib/supabase'
 import clsx from 'clsx'
+import Link from 'next/link'
 
 interface BrowseSession {
   id: string
@@ -20,7 +22,7 @@ interface BrowseSession {
 const NAME_KEY = 'telltale_name'
 const FAV_KEY = 'telltale_favorites'
 
-type MainView = 'sessions' | 'reference'
+type MainView = 'sessions' | 'reference' | 'learn'
 type Filter = 'all' | 'discussed' | 'favorites'
 
 function loadFavorites(): Set<string> {
@@ -48,6 +50,11 @@ export default function TeamFormPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
 
+  // Learn
+  const [articles, setArticles] = useState<Article[]>([])
+  const [articlesLoading, setArticlesLoading] = useState(false)
+  const [viewingArticle, setViewingArticle] = useState<Article | null>(null)
+
   useEffect(() => {
     const saved = localStorage.getItem(NAME_KEY)
     if (saved) setUserName(saved)
@@ -55,14 +62,12 @@ export default function TeamFormPage() {
     setFavorites(loadFavorites())
   }, [])
 
-  // Fetch all sessions
   useEffect(() => {
     fetch('/api/sessions/browse')
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
           setSessions(data)
-          // Expand the active session by default
           const active = data.find((s: BrowseSession) => s.is_active)
           if (active) setExpandedSessions(new Set([active.id]))
         }
@@ -70,7 +75,6 @@ export default function TeamFormPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  // Fetch all comments across all sessions
   useEffect(() => {
     if (sessions.length === 0) return
     Promise.all(
@@ -81,6 +85,16 @@ export default function TeamFormPage() {
       )
     ).then((results) => setComments(results.flat()))
   }, [sessions])
+
+  useEffect(() => {
+    if (mainView === 'learn' && articles.length === 0) {
+      setArticlesLoading(true)
+      fetch('/api/articles')
+        .then((r) => r.json())
+        .then((data) => { if (Array.isArray(data)) setArticles(data) })
+        .finally(() => setArticlesLoading(false))
+    }
+  }, [mainView, articles.length])
 
   function handleSetName(name: string) {
     localStorage.setItem(NAME_KEY, name)
@@ -115,7 +129,6 @@ export default function TeamFormPage() {
 
   const activeSession = sessions.find((s) => s.is_active)
 
-  // All videos across all sessions
   const allVideos = useMemo(() =>
     sessions.flatMap((s) => s.videos.map((v) => ({ video: v, sessionId: s.id }))),
     [sessions]
@@ -221,12 +234,13 @@ export default function TeamFormPage() {
         {/* Main nav */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex gap-1 -mb-px">
           {([
-            { key: 'sessions', label: 'Sessions', icon: null },
-            { key: 'reference', label: 'Reference', icon: <BookOpen className="h-3.5 w-3.5" /> },
-          ] as { key: MainView; label: string; icon: React.ReactNode }[]).map((tab) => (
+            { key: 'sessions' as MainView, label: 'Sessions', icon: null },
+            { key: 'reference' as MainView, label: 'Reference', icon: <BookOpen className="h-3.5 w-3.5" /> },
+            { key: 'learn' as MainView, label: 'Learn', icon: <GraduationCap className="h-3.5 w-3.5" /> },
+          ]).map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setMainView(tab.key)}
+              onClick={() => { setMainView(tab.key); setViewingArticle(null) }}
               className={clsx(
                 'flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors',
                 mainView === tab.key
@@ -252,6 +266,63 @@ export default function TeamFormPage() {
           />
         )}
 
+        {/* ── Learn ── */}
+        {mainView === 'learn' && (
+          viewingArticle ? (
+            <div>
+              <button
+                onClick={() => setViewingArticle(null)}
+                className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-6 transition-colors"
+              >
+                <ChevronRight className="h-4 w-4 rotate-180" />
+                Back to articles
+              </button>
+              <ArticleViewer article={viewingArticle} />
+            </div>
+          ) : (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Learn</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Team learning resources</p>
+              </div>
+              {articlesLoading && (
+                <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">Loading…</span>
+                </div>
+              )}
+              {!articlesLoading && articles.length === 0 && (
+                <div className="text-center py-20 text-gray-400">
+                  <GraduationCap className="mx-auto mb-3 h-10 w-10 opacity-30" />
+                  <p className="font-medium">No articles yet</p>
+                  <p className="text-sm mt-1">Check back soon for team learning resources.</p>
+                </div>
+              )}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {articles.map((article) => (
+                  <button
+                    key={article.id}
+                    onClick={() => setViewingArticle(article)}
+                    className="group text-left bg-white rounded-xl border border-gray-100 p-5 hover:shadow-md hover:border-blue-200 transition-all"
+                  >
+                    <div className="flex items-start gap-3 mb-3">
+                      <div className="p-2 bg-blue-50 rounded-lg shrink-0">
+                        <GraduationCap className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-gray-800 leading-snug group-hover:text-blue-700 transition-colors">
+                        {article.title}
+                      </h3>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      By {article.author_name} · {article.blocks.length} section{article.blocks.length !== 1 ? 's' : ''}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+        )}
+
         {mainView === 'sessions' && loading && (
           <div className="flex items-center justify-center py-24 gap-2 text-gray-400">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -269,7 +340,7 @@ export default function TeamFormPage() {
 
         {mainView === 'sessions' && !loading && sessions.length > 0 && (
           <>
-            {/* Recently discussed — across all sessions */}
+            {/* Recently discussed */}
             {discussedVideos.length > 0 && (
               <section>
                 <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
@@ -313,10 +384,10 @@ export default function TeamFormPage() {
               <h2 className="text-sm font-bold text-gray-800">All videos</h2>
               <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
                 {([
-                  { key: 'all', label: 'All' },
-                  { key: 'discussed', label: '💬 Discussed' },
-                  { key: 'favorites', label: '❤️ Favorites' },
-                ] as { key: Filter; label: string }[]).map((f) => (
+                  { key: 'all' as Filter, label: 'All' },
+                  { key: 'discussed' as Filter, label: '💬 Discussed' },
+                  { key: 'favorites' as Filter, label: '❤️ Favorites' },
+                ]).map((f) => (
                   <button
                     key={f.key}
                     onClick={() => setFilter(f.key)}
@@ -331,12 +402,11 @@ export default function TeamFormPage() {
               </div>
             </div>
 
-            {/* Sessions — active first, then older */}
+            {/* Sessions */}
             {sessions.map((session) => {
               const filtered = getFilteredVideos(session.videos)
               const isExpanded = expandedSessions.has(session.id)
 
-              // Hide session if filtering and it has no matching videos
               if (filter !== 'all' && filtered.length === 0) return null
 
               return (

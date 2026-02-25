@@ -3,18 +3,21 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronDown, ChevronRight, Film, LogOut, Shield,
-  MessageSquare, Play, Grid3x3, BookOpen
+  MessageSquare, Play, Grid3x3, BookOpen, Upload, FileText, Users
 } from 'lucide-react'
 import SessionManager from './SessionManager'
 import VideoManager from './VideoManager'
 import VideoWatchView from './VideoWatchView'
 import ReferenceManager from './ReferenceManager'
+import VideoUploader from './VideoUploader'
+import ArticleEditor from './ArticleEditor'
 import type { Session, Comment } from '@/lib/supabase'
 import type { SessionVideo } from '@/lib/types'
+import type { Article } from '@/lib/types'
 import { thumbnailUrl } from '@/lib/types'
 import clsx from 'clsx'
 
-type SidebarView = 'session' | 'reference'
+type SidebarView = 'session' | 'reference' | 'upload' | 'articles'
 type MainTab = 'review' | 'videos'
 
 function formatTime(s: number) {
@@ -34,25 +37,31 @@ function timeAgo(dateStr: string) {
 
 interface WatchTarget { video: SessionVideo; sessionId: string }
 
-interface DashboardViewProps {
+interface Props {
   initialSessions: Session[]
   userRole: 'captain' | 'contributor'
   userName: string
 }
 
-export default function DashboardView({ initialSessions, userRole, userName }: DashboardViewProps) {
+export default function DashboardView({ initialSessions, userRole, userName }: Props) {
   const isCaptain = userRole === 'captain'
   const [sessions, setSessions] = useState<Session[]>(initialSessions)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     initialSessions.find((s) => s.is_active)?.id ?? initialSessions[0]?.id ?? null
   )
   const [sidebarView, setSidebarView] = useState<SidebarView>('session')
-  const [mainTab, setMainTab] = useState<MainTab>(userRole === 'captain' ? 'review' : 'videos')
+  const [mainTab, setMainTab] = useState<MainTab>('review')
   const [reviewComments, setReviewComments] = useState<Comment[]>([])
   const [loadingReview, setLoadingReview] = useState(false)
   const [expandedVideos, setExpandedVideos] = useState<Set<string>>(new Set())
   const [showVideoManager, setShowVideoManager] = useState(false)
   const [watchTarget, setWatchTarget] = useState<WatchTarget | null>(null)
+  const [reviewUserFilter, setReviewUserFilter] = useState<string>('all')
+
+  // Articles state
+  const [articles, setArticles] = useState<Article[]>([])
+  const [articlesLoading, setArticlesLoading] = useState(false)
+  const [editingArticle, setEditingArticle] = useState<Article | null | 'new'>(null)
 
   const fetchReview = useCallback(async (sessionId: string) => {
     setLoadingReview(true)
@@ -68,8 +77,21 @@ export default function DashboardView({ initialSessions, userRole, userName }: D
     if (selectedSessionId && mainTab === 'review') fetchReview(selectedSessionId)
   }, [selectedSessionId, mainTab, fetchReview])
 
-  // Reset video manager when session changes
   useEffect(() => { setShowVideoManager(false) }, [selectedSessionId])
+
+  // Reset review filter when session changes
+  useEffect(() => { setReviewUserFilter('all') }, [selectedSessionId])
+
+  // Fetch articles when articles view is selected
+  useEffect(() => {
+    if (sidebarView === 'articles' && articles.length === 0) {
+      setArticlesLoading(true)
+      fetch('/api/articles?drafts=true')
+        .then((r) => r.json())
+        .then((data) => { if (Array.isArray(data)) setArticles(data) })
+        .finally(() => setArticlesLoading(false))
+    }
+  }, [sidebarView, articles.length])
 
   async function fetchSessions() {
     const res = await fetch('/api/sessions')
@@ -100,7 +122,6 @@ export default function DashboardView({ initialSessions, userRole, userName }: D
         ? { ...s, videos: s.videos.map((v) => v.id === videoId ? { ...v, note } : v) }
         : s
     ))
-    // Also update the watchTarget video if open
     setWatchTarget((prev) => prev ? { ...prev, video: { ...prev.video, note } } : prev)
   }
 
@@ -117,6 +138,21 @@ export default function DashboardView({ initialSessions, userRole, userName }: D
     return [...map.entries()].map(([videoId, { videoTitle, comments }]) => ({ videoId, videoTitle, comments }))
   }, [reviewComments])
 
+  // Unique authors for the filter dropdown
+  const reviewAuthors = useMemo(() => {
+    const names = new Set<string>()
+    for (const c of reviewComments) names.add(c.author_name)
+    return [...names].sort()
+  }, [reviewComments])
+
+  // Filtered review groups
+  const filteredReviewGroups = useMemo(() => {
+    if (reviewUserFilter === 'all') return reviewGroups
+    return reviewGroups
+      .map((g) => ({ ...g, comments: g.comments.filter((c) => c.author_name === reviewUserFilter) }))
+      .filter((g) => g.comments.length > 0)
+  }, [reviewGroups, reviewUserFilter])
+
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
 
@@ -124,15 +160,17 @@ export default function DashboardView({ initialSessions, userRole, userName }: D
       <aside className="w-60 bg-white border-r border-gray-100 flex flex-col shrink-0">
         <div className="px-4 py-4 border-b border-gray-100">
           <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Telltale</p>
-          <p className="text-sm font-semibold text-gray-700 mt-0.5">{isCaptain ? 'Captain Dashboard' : userName}</p>
+          <p className="text-sm font-semibold text-gray-700 mt-0.5 truncate">
+            {isCaptain ? 'Captain' : userName}
+          </p>
         </div>
 
         <div className="flex-1 overflow-y-auto py-3">
-          {/* Reference Library link */}
+          {/* Reference Library */}
           <button
             onClick={() => setSidebarView('reference')}
             className={clsx(
-              'w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2 mb-2',
+              'w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2',
               sidebarView === 'reference'
                 ? 'bg-blue-50 text-blue-700 font-medium border-r-2 border-blue-600'
                 : 'text-gray-600 hover:bg-gray-50'
@@ -140,6 +178,34 @@ export default function DashboardView({ initialSessions, userRole, userName }: D
           >
             <BookOpen className="h-4 w-4 shrink-0" />
             Reference Library
+          </button>
+
+          {/* Upload Videos */}
+          <button
+            onClick={() => setSidebarView('upload')}
+            className={clsx(
+              'w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2',
+              sidebarView === 'upload'
+                ? 'bg-blue-50 text-blue-700 font-medium border-r-2 border-blue-600'
+                : 'text-gray-600 hover:bg-gray-50'
+            )}
+          >
+            <Upload className="h-4 w-4 shrink-0" />
+            Upload Videos
+          </button>
+
+          {/* Articles */}
+          <button
+            onClick={() => setSidebarView('articles')}
+            className={clsx(
+              'w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2 mb-2',
+              sidebarView === 'articles'
+                ? 'bg-blue-50 text-blue-700 font-medium border-r-2 border-blue-600'
+                : 'text-gray-600 hover:bg-gray-50'
+            )}
+          >
+            <FileText className="h-4 w-4 shrink-0" />
+            Articles
           </button>
 
           <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Sessions</p>
@@ -165,6 +231,7 @@ export default function DashboardView({ initialSessions, userRole, userName }: D
           ))}
         </div>
 
+        {/* New session — captain only */}
         {isCaptain && <SessionManager onSessionCreated={fetchSessions} />}
 
         <div className="px-4 py-3 border-t border-gray-100">
@@ -185,10 +252,88 @@ export default function DashboardView({ initialSessions, userRole, userName }: D
         {sidebarView === 'reference' && (
           <div className="max-w-5xl mx-auto px-6 py-6">
             <ReferenceManager
-              isCaptain={isCaptain}
+              isCaptain={true}
               userName={userName}
               activeSessionId={sessions.find((s) => s.is_active)?.id}
             />
+          </div>
+        )}
+
+        {/* Upload Videos view */}
+        {sidebarView === 'upload' && (
+          <div className="max-w-3xl mx-auto px-6 py-6">
+            <VideoUploader sessions={sessions} onUploaded={fetchSessions} />
+          </div>
+        )}
+
+        {/* Articles view */}
+        {sidebarView === 'articles' && (
+          <div className="max-w-4xl mx-auto px-6 py-6">
+            {editingArticle !== null ? (
+              <ArticleEditor
+                article={editingArticle === 'new' ? null : editingArticle}
+                userName={userName}
+                onSaved={(saved) => {
+                  setArticles((prev) => {
+                    const exists = prev.find((a) => a.id === saved.id)
+                    return exists ? prev.map((a) => a.id === saved.id ? saved : a) : [saved, ...prev]
+                  })
+                  setEditingArticle(null)
+                }}
+                onCancel={() => setEditingArticle(null)}
+              />
+            ) : (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-800">Articles</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">Team learning resources</p>
+                  </div>
+                  <button
+                    onClick={() => setEditingArticle('new')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <FileText className="h-4 w-4" />
+                    New article
+                  </button>
+                </div>
+                {articlesLoading && <p className="text-sm text-gray-400">Loading…</p>}
+                {!articlesLoading && articles.length === 0 && (
+                  <div className="text-center py-20 text-gray-400">
+                    <FileText className="mx-auto mb-3 h-10 w-10 opacity-30" />
+                    <p className="font-medium">No articles yet</p>
+                    <p className="text-sm mt-1">Write the first team learning article.</p>
+                  </div>
+                )}
+                <div className="space-y-3">
+                  {articles.map((article) => (
+                    <div
+                      key={article.id}
+                      className="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 flex items-start justify-between gap-4"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-sm font-semibold text-gray-800">{article.title}</h3>
+                          {article.is_published
+                            ? <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full font-medium">Published</span>
+                            : <span className="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium">Draft</span>
+                          }
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          By {article.author_name} · {article.blocks.length} block{article.blocks.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setEditingArticle(article)}
+                        className="shrink-0 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -203,18 +348,15 @@ export default function DashboardView({ initialSessions, userRole, userName }: D
                   {sessionVideos.length} video{sessionVideos.length !== 1 ? 's' : ''} &middot; {reviewComments.length} for review
                 </p>
               </div>
-              {isCaptain && (
-                <button
-                  onClick={() => setShowVideoManager((v) => !v)}
-                  className="shrink-0 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
-                >
-                  {showVideoManager ? 'Done' : 'Manage videos'}
-                </button>
-              )}
+              <button
+                onClick={() => setShowVideoManager((v) => !v)}
+                className="shrink-0 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+              >
+                {showVideoManager ? 'Done' : 'Manage videos'}
+              </button>
             </div>
 
-            {/* Video manager — captain only */}
-            {isCaptain && showVideoManager && (
+            {showVideoManager && (
               <div className="mb-5 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
                 <VideoManager
                   sessionId={selectedSessionId}
@@ -228,23 +370,21 @@ export default function DashboardView({ initialSessions, userRole, userName }: D
 
             {/* Tabs */}
             <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6 w-fit">
-              {isCaptain && (
-                <button
-                  onClick={() => setMainTab('review')}
-                  className={clsx(
-                    'flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
-                    mainTab === 'review' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                  )}
-                >
-                  <Shield className="h-4 w-4" />
-                  Review queue
-                  {reviewComments.length > 0 && (
-                    <span className="bg-blue-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
-                      {reviewComments.length}
-                    </span>
-                  )}
-                </button>
-              )}
+              <button
+                onClick={() => setMainTab('review')}
+                className={clsx(
+                  'flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+                  mainTab === 'review' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                )}
+              >
+                <Shield className="h-4 w-4" />
+                Review queue
+                {reviewComments.length > 0 && (
+                  <span className="bg-blue-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
+                    {reviewComments.length}
+                  </span>
+                )}
+              </button>
               <button
                 onClick={() => setMainTab('videos')}
                 className={clsx(
@@ -260,10 +400,27 @@ export default function DashboardView({ initialSessions, userRole, userName }: D
             {/* ── Review tab ── */}
             {mainTab === 'review' && (
               <>
+                {/* User filter */}
+                {reviewAuthors.length > 1 && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <Users className="h-4 w-4 text-gray-400 shrink-0" />
+                    <select
+                      value={reviewUserFilter}
+                      onChange={(e) => setReviewUserFilter(e.target.value)}
+                      className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                      <option value="all">All users</option>
+                      {reviewAuthors.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {loadingReview && (
                   <p className="text-sm text-gray-400 py-10 text-center">Loading…</p>
                 )}
-                {!loadingReview && reviewGroups.length === 0 && (
+                {!loadingReview && filteredReviewGroups.length === 0 && (
                   <div className="text-center py-20 text-gray-400">
                     <Shield className="mx-auto mb-3 h-10 w-10 opacity-30" />
                     <p className="font-medium">No submissions for review yet</p>
@@ -271,7 +428,7 @@ export default function DashboardView({ initialSessions, userRole, userName }: D
                   </div>
                 )}
                 <div className="space-y-4">
-                  {reviewGroups.map((group) => {
+                  {filteredReviewGroups.map((group) => {
                     const isExpanded = expandedVideos.has(group.videoId)
                     const sessionVideo = sessionVideos.find((v) => v.id === group.videoId)
                     return (
@@ -333,7 +490,6 @@ export default function DashboardView({ initialSessions, userRole, userName }: D
             {/* ── Videos tab ── */}
             {mainTab === 'videos' && (
               <>
-                {/* All sessions as collapsible groups */}
                 {sessions.map((session) => {
                   const vids: SessionVideo[] = session.videos ?? []
                   const isOpen = expandedVideos.has(session.id)
@@ -415,14 +571,14 @@ export default function DashboardView({ initialSessions, userRole, userName }: D
         ) : null}
       </main>
 
-      {/* Video watch + comment panel (captain view) */}
+      {/* Video watch + comment panel */}
       {watchTarget && (
         <VideoWatchView
           video={watchTarget.video}
           sessionId={watchTarget.sessionId}
           userName={userName}
           isCaptain={isCaptain}
-          onNoteUpdated={handleNoteUpdated}
+          onNoteUpdated={isCaptain ? handleNoteUpdated : undefined}
           onClose={() => setWatchTarget(null)}
         />
       )}
