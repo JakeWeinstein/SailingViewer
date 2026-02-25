@@ -42,6 +42,7 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
   const [loading, setLoading] = useState(true)
   const [watchTarget, setWatchTarget] = useState<ReferenceVideo | null>(null)
   const [showFolderManager, setShowFolderManager] = useState(false)
+  const [isDragOverUnfoldered, setIsDragOverUnfoldered] = useState(false)
 
   // Add form
   const [showAdd, setShowAdd] = useState(false)
@@ -149,6 +150,16 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
     setWatchTarget((prev) => prev && prev.id === dbId ? { ...prev, notes } : prev)
   }
 
+  async function handleAssignFolder(videoId: string, folderId: string | null) {
+    // Optimistic update
+    setVideos((prev) => prev.map((v) => v.id === videoId ? { ...v, folder_id: folderId } : v))
+    await fetch(`/api/reference-videos/${videoId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder_id: folderId }),
+    })
+  }
+
   // Organize videos into folder hierarchy
   const topFolders = folders.filter((f) => !f.parent_id).sort((a, b) => a.sort_order - b.sort_order)
   const getSubFolders = (pid: string) => folders.filter((f) => f.parent_id === pid).sort((a, b) => a.sort_order - b.sort_order)
@@ -172,7 +183,17 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
       ? youtubeThumbnailUrl(video.video_ref)
       : thumbnailUrl(video.video_ref)
     return (
-      <div className="group relative bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-blue-200 transition-all">
+      <div
+        draggable={isCaptain}
+        onDragStart={isCaptain ? (e) => {
+          e.dataTransfer.setData('text/plain', video.id)
+          e.dataTransfer.effectAllowed = 'move'
+        } : undefined}
+        className={clsx(
+          'group relative bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-blue-200 transition-all',
+          isCaptain && 'cursor-grab active:cursor-grabbing active:opacity-50'
+        )}
+      >
         <button className="w-full text-left" onClick={() => setWatchTarget(video)}>
           <div className="relative aspect-video bg-gray-100 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -218,6 +239,7 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
 
   function FolderSection({ folder, depth = 0 }: { folder: ReferenceFolder; depth?: number }) {
     const [open, setOpen] = useState(true)
+    const [isDragOver, setIsDragOver] = useState(false)
     const subFolders = getSubFolders(folder.id)
     const folderVideos = getVideosInFolder(folder.id)
     if (folderVideos.length === 0 && subFolders.every((sf) => getVideosInFolder(sf.id).length === 0)) {
@@ -226,7 +248,22 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
     }
 
     return (
-      <div className={clsx(depth > 0 && 'ml-4 border-l border-gray-100 pl-4')}>
+      <div
+        className={clsx(
+          depth > 0 && 'ml-4 border-l border-gray-100 pl-4',
+          isDragOver && 'ring-2 ring-blue-400 ring-inset rounded-xl bg-blue-50/40 transition-all'
+        )}
+        onDragOver={isCaptain ? (e) => { e.preventDefault(); setIsDragOver(true) } : undefined}
+        onDragLeave={isCaptain ? (e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOver(false)
+        } : undefined}
+        onDrop={isCaptain ? (e) => {
+          e.preventDefault()
+          setIsDragOver(false)
+          const videoId = e.dataTransfer.getData('text/plain')
+          if (videoId) handleAssignFolder(videoId, folder.id)
+        } : undefined}
+      >
         <button
           onClick={() => setOpen((v) => !v)}
           className="flex items-center gap-2 w-full text-left mb-2"
@@ -455,15 +492,36 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
           {topFolders.map((folder) => (
             <FolderSection key={folder.id} folder={folder} depth={0} />
           ))}
-          {/* Unfoldered videos */}
-          {unfolderedVideos.length > 0 && (
-            <div>
-              {topFolders.length > 0 && (
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Other</p>
+          {/* Unfoldered videos — always show as drop zone when captain has folders */}
+          {(unfolderedVideos.length > 0 || (isCaptain && folders.length > 0)) && (
+            <div
+              onDragOver={isCaptain ? (e) => { e.preventDefault(); setIsDragOverUnfoldered(true) } : undefined}
+              onDragLeave={isCaptain ? (e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragOverUnfoldered(false)
+              } : undefined}
+              onDrop={isCaptain ? (e) => {
+                e.preventDefault()
+                setIsDragOverUnfoldered(false)
+                const videoId = e.dataTransfer.getData('text/plain')
+                if (videoId) handleAssignFolder(videoId, null)
+              } : undefined}
+              className={clsx(
+                'rounded-xl transition-all',
+                isDragOverUnfoldered && 'ring-2 ring-blue-400 ring-inset bg-blue-50/40 p-2'
               )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {unfolderedVideos.map((video) => <VideoCard key={video.id} video={video} />)}
-              </div>
+            >
+              {topFolders.length > 0 && (
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Unfoldered</p>
+              )}
+              {unfolderedVideos.length === 0 ? (
+                <div className="py-8 flex items-center justify-center text-gray-300 text-xs border-2 border-dashed border-gray-200 rounded-xl">
+                  Drop here to remove from folder
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {unfolderedVideos.map((video) => <VideoCard key={video.id} video={video} />)}
+                </div>
+              )}
             </div>
           )}
         </div>

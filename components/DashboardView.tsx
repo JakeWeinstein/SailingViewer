@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronDown, ChevronRight, Film, LogOut, Shield,
-  MessageSquare, Play, Grid3x3, BookOpen, Upload, FileText, Users
+  MessageSquare, Play, Grid3x3, BookOpen, Upload, FileText, Users, Anchor
 } from 'lucide-react'
 import SessionManager from './SessionManager'
 import VideoManager from './VideoManager'
@@ -15,6 +15,7 @@ import type { Session, Comment } from '@/lib/supabase'
 import type { SessionVideo, VideoNote, Article, ReferenceFolder } from '@/lib/types'
 import { thumbnailUrl } from '@/lib/types'
 import clsx from 'clsx'
+import Link from 'next/link'
 
 type SidebarView = 'session' | 'reference' | 'upload' | 'articles'
 type MainTab = 'review' | 'videos'
@@ -262,7 +263,14 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
         {/* New session — captain only */}
         {isCaptain && <SessionManager onSessionCreated={fetchSessions} />}
 
-        <div className="px-4 py-3 border-t border-gray-100">
+        <div className="px-4 py-3 border-t border-gray-100 space-y-2">
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            <Anchor className="h-4 w-4" />
+            Back to site
+          </Link>
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
