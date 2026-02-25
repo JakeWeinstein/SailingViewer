@@ -170,7 +170,7 @@ export default function VideoWatchView({
       className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-0 md:p-4 overflow-hidden"
       onClick={(e) => { if (e.target === backdropRef.current) onClose() }}
     >
-      <div className="relative w-full h-full md:h-auto max-w-7xl bg-white md:rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden">
+      <div className="relative w-full h-full md:h-auto max-w-7xl bg-white md:rounded-2xl shadow-2xl flex flex-col md:block overflow-hidden">
 
         <button
           onClick={onClose}
@@ -179,8 +179,8 @@ export default function VideoWatchView({
           <X className="h-4 w-4" />
         </button>
 
-        {/* ── Left: Video ── */}
-        <div className="w-full md:w-[65%] bg-black flex flex-col shrink-0">
+        {/* ── Left: Video — sets the dialog height on desktop ── */}
+        <div className="w-full md:w-[65%] bg-black flex flex-col">
           <div className="aspect-video w-full">
             <iframe
               key={iframeSrc}
@@ -211,8 +211,8 @@ export default function VideoWatchView({
           </div>
         </div>
 
-        {/* ── Right: Note + Composer + Thread ── */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        {/* ── Right: absolutely fills the height set by the left panel ── */}
+        <div className="flex-1 md:absolute md:inset-y-0 md:right-0 md:w-[35%] flex flex-col overflow-hidden border-l border-gray-100">
 
           {/* Captain note — editable by captain */}
           {isCaptain && (
