@@ -170,7 +170,7 @@ export default function VideoWatchView({
       className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-0 md:p-4 overflow-hidden"
       onClick={(e) => { if (e.target === backdropRef.current) onClose() }}
     >
-      <div className="relative w-full h-full md:h-[94vh] max-w-7xl bg-white md:rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden">
+      <div className="relative w-full h-full md:h-auto max-w-7xl bg-white md:rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden">
 
         <button
           onClick={onClose}
@@ -180,8 +180,8 @@ export default function VideoWatchView({
         </button>
 
         {/* ── Left: Video ── */}
-        <div className="w-full md:w-[65%] bg-black flex flex-col shrink-0 md:min-h-0">
-          <div className="aspect-video md:aspect-auto md:flex-1 md:min-h-0 w-full">
+        <div className="w-full md:w-[65%] bg-black flex flex-col shrink-0">
+          <div className="aspect-video w-full">
             <iframe
               key={iframeSrc}
               src={iframeSrc}
@@ -212,7 +212,7 @@ export default function VideoWatchView({
         </div>
 
         {/* ── Right: Note + Composer + Thread ── */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 flex flex-col overflow-hidden">
 
           {/* Captain note — editable by captain */}
           {isCaptain && (
