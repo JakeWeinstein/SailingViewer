@@ -1,17 +1,19 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Anchor, Loader2, Heart, MessageCircle, Play, ChevronDown } from 'lucide-react'
+import { Anchor, Loader2, Heart, MessageCircle, Play, ChevronDown, ChevronRight } from 'lucide-react'
 import NamePrompt from '@/components/NamePrompt'
 import VideoWatchView from '@/components/VideoWatchView'
 import { thumbnailUrl, type SessionVideo } from '@/lib/types'
 import type { Comment } from '@/lib/supabase'
 import clsx from 'clsx'
 
-interface ActiveSession {
+interface BrowseSession {
   id: string
   label: string
   videos: SessionVideo[]
+  is_active: boolean
+  created_at: string
 }
 
 const NAME_KEY = 'theoryform_name'
@@ -30,16 +32,19 @@ function saveFavorites(favs: Set<string>) {
   localStorage.setItem(FAV_KEY, JSON.stringify([...favs]))
 }
 
+interface WatchTarget { video: SessionVideo; sessionId: string }
+
 export default function TeamFormPage() {
   const [userName, setUserName] = useState<string | null>(null)
   const [showNamePrompt, setShowNamePrompt] = useState(false)
-  const [session, setSession] = useState<ActiveSession | null | undefined>(undefined)
+  const [sessions, setSessions] = useState<BrowseSession[]>([])
+  const [loading, setLoading] = useState(true)
   const [comments, setComments] = useState<Comment[]>([])
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
-  const [selectedVideo, setSelectedVideo] = useState<SessionVideo | null>(null)
+  const [watchTarget, setWatchTarget] = useState<WatchTarget | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
 
-  // Restore name + favorites from localStorage
   useEffect(() => {
     const saved = localStorage.getItem(NAME_KEY)
     if (saved) setUserName(saved)
@@ -47,21 +52,32 @@ export default function TeamFormPage() {
     setFavorites(loadFavorites())
   }, [])
 
-  // Fetch active session
+  // Fetch all sessions
   useEffect(() => {
-    fetch('/api/sessions/active')
+    fetch('/api/sessions/browse')
       .then((r) => r.json())
-      .then(setSession)
-      .catch(() => setSession(null))
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setSessions(data)
+          // Expand the active session by default
+          const active = data.find((s: BrowseSession) => s.is_active)
+          if (active) setExpandedSessions(new Set([active.id]))
+        }
+      })
+      .finally(() => setLoading(false))
   }, [])
 
-  // Fetch all comments for this session
+  // Fetch all comments across all sessions
   useEffect(() => {
-    if (!session?.id) return
-    fetch(`/api/comments?sessionId=${session.id}`)
-      .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data)) setComments(data) })
-  }, [session?.id])
+    if (sessions.length === 0) return
+    Promise.all(
+      sessions.map((s) =>
+        fetch(`/api/comments?sessionId=${s.id}`)
+          .then((r) => r.json())
+          .then((data) => (Array.isArray(data) ? data : []))
+      )
+    ).then((results) => setComments(results.flat()))
+  }, [sessions])
 
   function handleSetName(name: string) {
     localStorage.setItem(NAME_KEY, name)
@@ -72,28 +88,42 @@ export default function TeamFormPage() {
   function toggleFavorite(videoId: string) {
     setFavorites((prev) => {
       const next = new Set(prev)
-      if (next.has(videoId)) next.delete(videoId)
-      else next.add(videoId)
+      next.has(videoId) ? next.delete(videoId) : next.add(videoId)
       saveFavorites(next)
       return next
     })
   }
 
-  function handleNoteUpdated(videoId: string, note: string) {
-    setSession((prev) => prev ? {
-      ...prev,
-      videos: prev.videos.map((v) => v.id === videoId ? { ...v, note } : v),
-    } : prev)
+  function handleNoteUpdated(videoId: string, note: string, noteTimestamp?: number) {
+    setSessions((prev) => prev.map((s) => ({
+      ...s,
+      videos: s.videos.map((v) => v.id === videoId ? { ...v, note, noteTimestamp } : v),
+    })))
+    setWatchTarget((prev) => prev ? { ...prev, video: { ...prev.video, note, noteTimestamp } } : prev)
   }
 
-  // Comment count per video
+  function toggleSession(sessionId: string) {
+    setExpandedSessions((prev) => {
+      const next = new Set(prev)
+      next.has(sessionId) ? next.delete(sessionId) : next.add(sessionId)
+      return next
+    })
+  }
+
+  const activeSession = sessions.find((s) => s.is_active)
+
+  // All videos across all sessions
+  const allVideos = useMemo(() =>
+    sessions.flatMap((s) => s.videos.map((v) => ({ video: v, sessionId: s.id }))),
+    [sessions]
+  )
+
   const commentCountByVideo = useMemo(() => {
     const map = new Map<string, number>()
     for (const c of comments) map.set(c.video_id, (map.get(c.video_id) ?? 0) + 1)
     return map
   }, [comments])
 
-  // Most-recent comment timestamp per video (for sorting "discussed")
   const latestCommentByVideo = useMemo(() => {
     const map = new Map<string, number>()
     for (const c of comments) {
@@ -103,24 +133,65 @@ export default function TeamFormPage() {
     return map
   }, [comments])
 
-  const videos = session?.videos ?? []
-
   const discussedVideos = useMemo(() =>
-    videos
-      .filter((v) => commentCountByVideo.has(v.id))
-      .sort((a, b) => (latestCommentByVideo.get(b.id) ?? 0) - (latestCommentByVideo.get(a.id) ?? 0)),
-    [videos, commentCountByVideo, latestCommentByVideo]
+    allVideos
+      .filter(({ video }) => commentCountByVideo.has(video.id))
+      .sort((a, b) => (latestCommentByVideo.get(b.video.id) ?? 0) - (latestCommentByVideo.get(a.video.id) ?? 0)),
+    [allVideos, commentCountByVideo, latestCommentByVideo]
   )
 
-  const filteredVideos = useMemo(() => {
-    if (filter === 'discussed') return discussedVideos
-    if (filter === 'favorites') return videos.filter((v) => favorites.has(v.id))
-    return videos
-  }, [filter, videos, discussedVideos, favorites])
+  function getFilteredVideos(sessionVideos: SessionVideo[]) {
+    if (filter === 'discussed') return sessionVideos.filter((v) => commentCountByVideo.has(v.id))
+    if (filter === 'favorites') return sessionVideos.filter((v) => favorites.has(v.id))
+    return sessionVideos
+  }
+
+  function VideoCard({ video, sessionId }: { video: SessionVideo; sessionId: string }) {
+    const count = commentCountByVideo.get(video.id) ?? 0
+    const fav = favorites.has(video.id)
+    return (
+      <div className="group relative bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-blue-200 transition-all">
+        <button className="w-full text-left" onClick={() => setWatchTarget({ video, sessionId })}>
+          <div className="relative aspect-video bg-gray-100 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={thumbnailUrl(video.id)}
+              alt={video.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              loading="lazy"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+              <div className="opacity-0 group-hover:opacity-100 bg-white/90 rounded-full p-2.5 shadow">
+                <Play className="h-5 w-5 text-blue-600 fill-blue-600" />
+              </div>
+            </div>
+            {count > 0 && (
+              <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded-full">
+                <MessageCircle className="h-2.5 w-2.5" />
+                {count}
+              </div>
+            )}
+          </div>
+          <div className="px-3 pt-2 pb-1">
+            <p className="text-xs font-medium text-gray-800 line-clamp-2 leading-snug">{video.name}</p>
+            {video.note && <p className="text-xs text-amber-600 mt-0.5 truncate">📝 {video.note}</p>}
+          </div>
+        </button>
+        <div className="px-3 pb-2.5 flex justify-end">
+          <button
+            onClick={() => toggleFavorite(video.id)}
+            className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <Heart className={clsx('h-4 w-4 transition-colors', fav ? 'fill-red-500 text-red-500' : 'text-gray-300 hover:text-red-400')} />
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Name prompt */}
       {showNamePrompt && <NamePrompt onSet={handleSetName} />}
 
       {/* Header */}
@@ -131,7 +202,7 @@ export default function TeamFormPage() {
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-sm font-bold text-gray-900 leading-none">TheoryForm</h1>
-            {session?.label && <p className="text-xs text-gray-400 mt-0.5 truncate">{session.label}</p>}
+            {activeSession && <p className="text-xs text-gray-400 mt-0.5 truncate">{activeSession.label}</p>}
           </div>
           {userName && (
             <button
@@ -146,36 +217,34 @@ export default function TeamFormPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-10">
-        {/* Loading */}
-        {session === undefined && (
+        {loading && (
           <div className="flex items-center justify-center py-24 gap-2 text-gray-400">
             <Loader2 className="h-5 w-5 animate-spin" />
             <span className="text-sm">Loading…</span>
           </div>
         )}
 
-        {/* No active session */}
-        {session === null && (
+        {!loading && sessions.length === 0 && (
           <div className="text-center py-24">
             <Anchor className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-            <h2 className="text-lg font-semibold text-gray-600">No active session</h2>
-            <p className="text-sm text-gray-400 mt-1">The captain hasn&apos;t set up this week&apos;s session yet.</p>
+            <h2 className="text-lg font-semibold text-gray-600">No sessions yet</h2>
+            <p className="text-sm text-gray-400 mt-1">The captain hasn&apos;t set up any sessions yet.</p>
           </div>
         )}
 
-        {session && (
+        {!loading && sessions.length > 0 && (
           <>
-            {/* Recently discussed */}
+            {/* Recently discussed — across all sessions */}
             {discussedVideos.length > 0 && (
               <section>
                 <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
                   Recently discussed
                 </h2>
                 <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
-                  {discussedVideos.map((video) => (
+                  {discussedVideos.slice(0, 10).map(({ video, sessionId }) => (
                     <button
                       key={video.id}
-                      onClick={() => setSelectedVideo(video)}
+                      onClick={() => setWatchTarget({ video, sessionId })}
                       className="group shrink-0 w-48 text-left bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-blue-200 transition-all"
                     >
                       <div className="relative aspect-video bg-gray-100 overflow-hidden">
@@ -204,102 +273,92 @@ export default function TeamFormPage() {
               </section>
             )}
 
-            {/* All videos */}
-            <section>
-              <div className="flex items-center justify-between gap-4 mb-4">
-                <h2 className="text-sm font-bold text-gray-800">{session.label}</h2>
-                <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-                  {([
-                    { key: 'all', label: 'All' },
-                    { key: 'discussed', label: '💬 Discussed' },
-                    { key: 'favorites', label: '❤️ Favorites' },
-                  ] as { key: Filter; label: string }[]).map((f) => (
-                    <button
-                      key={f.key}
-                      onClick={() => setFilter(f.key)}
-                      className={clsx(
-                        'px-3 py-1 text-xs font-medium rounded-md transition-colors',
-                        filter === f.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                      )}
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
+            {/* Filter bar */}
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-sm font-bold text-gray-800">All videos</h2>
+              <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+                {([
+                  { key: 'all', label: 'All' },
+                  { key: 'discussed', label: '💬 Discussed' },
+                  { key: 'favorites', label: '❤️ Favorites' },
+                ] as { key: Filter; label: string }[]).map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => setFilter(f.key)}
+                    className={clsx(
+                      'px-3 py-1 text-xs font-medium rounded-md transition-colors',
+                      filter === f.key ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    )}
+                  >
+                    {f.label}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              {filteredVideos.length === 0 && (
-                <p className="text-sm text-gray-400 italic py-8 text-center">
-                  {filter === 'favorites' ? 'No favorites yet — click the ❤️ on any video.' : 'No videos in this session yet.'}
-                </p>
-              )}
+            {/* Sessions — active first, then older */}
+            {sessions.map((session) => {
+              const filtered = getFilteredVideos(session.videos)
+              const isExpanded = expandedSessions.has(session.id)
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {filteredVideos.map((video) => {
-                  const count = commentCountByVideo.get(video.id) ?? 0
-                  const fav = favorites.has(video.id)
-                  return (
-                    <div key={video.id} className="group relative bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-blue-200 transition-all">
-                      {/* Thumbnail */}
-                      <button className="w-full text-left" onClick={() => setSelectedVideo(video)}>
-                        <div className="relative aspect-video bg-gray-100 overflow-hidden">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={thumbnailUrl(video.id)}
-                            alt={video.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            loading="lazy"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                            <div className="opacity-0 group-hover:opacity-100 bg-white/90 rounded-full p-2.5 shadow">
-                              <Play className="h-5 w-5 text-blue-600 fill-blue-600" />
-                            </div>
-                          </div>
-                          {count > 0 && (
-                            <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded-full">
-                              <MessageCircle className="h-2.5 w-2.5" />
-                              {count}
-                            </div>
-                          )}
-                        </div>
-                        <div className="px-3 pt-2 pb-1">
-                          <p className="text-xs font-medium text-gray-800 line-clamp-2 leading-snug">{video.name}</p>
-                          {video.note && (
-                            <p className="text-xs text-amber-600 mt-1 truncate">📝 {video.note}</p>
-                          )}
-                        </div>
-                      </button>
+              // Hide session if filtering and it has no matching videos
+              if (filter !== 'all' && filtered.length === 0) return null
 
-                      {/* Favorite button */}
-                      <div className="px-3 pb-2.5 flex justify-end">
-                        <button
-                          onClick={() => toggleFavorite(video.id)}
-                          className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-                          title={fav ? 'Remove from favorites' : 'Add to favorites'}
-                        >
-                          <Heart className={clsx('h-4 w-4 transition-colors', fav ? 'fill-red-500 text-red-500' : 'text-gray-300 hover:text-red-400')} />
-                        </button>
+              return (
+                <section key={session.id}>
+                  <button
+                    onClick={() => toggleSession(session.id)}
+                    className="flex items-center gap-2 mb-4 w-full text-left group"
+                  >
+                    {isExpanded
+                      ? <ChevronDown className="h-4 w-4 text-gray-400" />
+                      : <ChevronRight className="h-4 w-4 text-gray-400" />
+                    }
+                    <span className="text-sm font-semibold text-gray-700">{session.label}</span>
+                    {session.is_active && (
+                      <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                        Current
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-400">
+                      {filtered.length} video{filtered.length !== 1 ? 's' : ''}
+                      {filter === 'all' && commentCountByVideo.size > 0 && (() => {
+                        const discussed = session.videos.filter((v) => commentCountByVideo.has(v.id)).length
+                        return discussed > 0 ? ` · ${discussed} discussed` : null
+                      })()}
+                    </span>
+                  </button>
+
+                  {isExpanded && (
+                    filtered.length === 0 ? (
+                      <p className="text-sm text-gray-400 italic pl-6 pb-4">
+                        {filter === 'favorites' ? 'No favorites in this session.' : 'No videos in this session.'}
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 pl-6">
+                        {filtered.map((video) => (
+                          <VideoCard key={video.id} video={video} sessionId={session.id} />
+                        ))}
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
+                    )
+                  )}
+                </section>
+              )
+            })}
           </>
         )}
       </main>
 
-      {/* Video watch + comment modal */}
-      {selectedVideo && session && userName && (
+      {watchTarget && userName && (
         <VideoWatchView
-          video={selectedVideo}
-          sessionId={session.id}
+          video={watchTarget.video}
+          sessionId={watchTarget.sessionId}
+          activeSessionId={activeSession?.id}
           userName={userName}
-          isFavorited={favorites.has(selectedVideo.id)}
-          onFavoriteToggle={() => toggleFavorite(selectedVideo.id)}
+          isFavorited={favorites.has(watchTarget.video.id)}
+          onFavoriteToggle={() => toggleFavorite(watchTarget.video.id)}
           onNoteUpdated={handleNoteUpdated}
-          onClose={() => setSelectedVideo(null)}
+          onClose={() => setWatchTarget(null)}
         />
       )}
     </div>

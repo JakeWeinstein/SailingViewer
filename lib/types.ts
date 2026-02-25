@@ -1,7 +1,8 @@
 export type SessionVideo = {
   id: string
   name: string
-  note?: string  // captain's note on this video
+  note?: string
+  noteTimestamp?: number  // seconds — captain can pin a timecode to the note
 }
 
 export function thumbnailUrl(id: string) {
