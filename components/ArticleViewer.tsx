@@ -10,6 +10,45 @@ interface Props {
 }
 
 function VideoBlock({ block }: { block: ArticleBlock & { type: 'video' } }) {
+  // Self-contained block — render directly without any fetch
+  if (block.videoRef && block.videoType) {
+    const src = block.videoType === 'youtube'
+      ? youtubeEmbedUrl(block.videoRef, block.startSeconds)
+      : embedUrl(block.videoRef) + (block.startSeconds ? `#t=${block.startSeconds}` : '')
+
+    return (
+      <div className="my-4">
+        <div className="aspect-video rounded-xl overflow-hidden shadow-sm border border-gray-100">
+          <iframe
+            src={src}
+            className="w-full h-full"
+            allow="autoplay"
+            allowFullScreen
+            title={block.title ?? 'Video'}
+          />
+        </div>
+        {(block.caption ?? block.title) && (
+          <p className="text-xs text-gray-500 mt-2 text-center font-medium">
+            {block.caption ?? block.title}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  // Legacy block — look up reference video by id
+  if (block.referenceVideoId) {
+    return <LegacyVideoBlock block={block} />
+  }
+
+  return (
+    <div className="aspect-video bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 text-sm my-4">
+      Video not available
+    </div>
+  )
+}
+
+function LegacyVideoBlock({ block }: { block: ArticleBlock & { type: 'video' } }) {
   const [video, setVideo] = useState<ReferenceVideo | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -24,16 +63,16 @@ function VideoBlock({ block }: { block: ArticleBlock & { type: 'video' } }) {
       .finally(() => setLoading(false))
   }, [block.referenceVideoId])
 
-  if (loading) return <div className="aspect-video bg-gray-100 rounded-xl animate-pulse" />
+  if (loading) return <div className="aspect-video bg-gray-100 rounded-xl animate-pulse my-4" />
   if (!video) return (
-    <div className="aspect-video bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 text-sm">
+    <div className="aspect-video bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 text-sm my-4">
       Video not found
     </div>
   )
 
   const src = video.type === 'youtube'
-    ? youtubeEmbedUrl(video.video_ref, video.note_timestamp)
-    : embedUrl(video.video_ref)
+    ? youtubeEmbedUrl(video.video_ref, block.startSeconds ?? video.note_timestamp)
+    : embedUrl(video.video_ref) + (block.startSeconds ? `#t=${block.startSeconds}` : '')
 
   return (
     <div className="my-4">

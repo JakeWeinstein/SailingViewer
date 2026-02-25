@@ -50,6 +50,9 @@ export default function TeamFormPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
 
+  // Auth state for login/dashboard button
+  const [authUser, setAuthUser] = useState<{ role: string; userName?: string } | null | undefined>(undefined)
+
   // Learn
   const [articles, setArticles] = useState<Article[]>([])
   const [articlesLoading, setArticlesLoading] = useState(false)
@@ -60,6 +63,11 @@ export default function TeamFormPage() {
     if (saved) setUserName(saved)
     else setShowNamePrompt(true)
     setFavorites(loadFavorites())
+    // Check if user is already authenticated
+    fetch('/api/auth/me')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => setAuthUser(data ?? null))
+      .catch(() => setAuthUser(null))
   }, [])
 
   useEffect(() => {
@@ -228,6 +236,24 @@ export default function TeamFormPage() {
               <span className="font-medium">{userName}</span>
               <ChevronDown className="h-3 w-3" />
             </button>
+          )}
+          {authUser !== undefined && (
+            authUser ? (
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full transition-colors"
+              >
+                Dashboard
+                <ChevronRight className="h-3 w-3" />
+              </Link>
+            ) : (
+              <Link
+                href="/dashboard/login"
+                className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-full transition-colors"
+              >
+                Login
+              </Link>
+            )
           )}
         </div>
 
