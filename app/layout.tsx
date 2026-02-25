@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'TheoryForm',
+  title: 'Telltale',
   description: 'Sailing team video review',
 }
 

@@ -16,8 +16,8 @@ interface BrowseSession {
   created_at: string
 }
 
-const NAME_KEY = 'theoryform_name'
-const FAV_KEY = 'theoryform_favorites'
+const NAME_KEY = 'telltale_name'
+const FAV_KEY = 'telltale_favorites'
 
 type Filter = 'all' | 'discussed' | 'favorites'
 
@@ -201,7 +201,7 @@ export default function TeamFormPage() {
             <Anchor className="h-4 w-4 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-bold text-gray-900 leading-none">TheoryForm</h1>
+            <h1 className="text-sm font-bold text-gray-900 leading-none">Telltale</h1>
             {activeSession && <p className="text-xs text-gray-400 mt-0.5 truncate">{activeSession.label}</p>}
           </div>
           {userName && (

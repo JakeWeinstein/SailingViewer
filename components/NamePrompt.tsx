@@ -13,7 +13,7 @@ export default function NamePrompt({ onSet }: { onSet: (name: string) => void })
           <div className="inline-flex p-3 bg-blue-600 rounded-xl mb-3">
             <Anchor className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900">Welcome to TheoryForm</h1>
+          <h1 className="text-xl font-bold text-gray-900">Welcome to Telltale</h1>
           <p className="text-sm text-gray-500 mt-1">Enter your name to leave comments and save favorites</p>
         </div>
         <form onSubmit={(e) => { e.preventDefault(); if (value.trim()) onSet(value.trim()) }} className="space-y-3">

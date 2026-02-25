@@ -113,7 +113,7 @@ export default function DashboardView({ initialSessions }: { initialSessions: Se
       {/* ── Sidebar ── */}
       <aside className="w-60 bg-white border-r border-gray-100 flex flex-col shrink-0">
         <div className="px-4 py-4 border-b border-gray-100">
-          <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">TheoryForm</p>
+          <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Telltale</p>
           <p className="text-sm font-semibold text-gray-700 mt-0.5">Captain Dashboard</p>
         </div>
 
