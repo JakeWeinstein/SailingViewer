@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock } from 'lucide-react'
+import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
 import { embedUrl, youtubeEmbedUrl, type SessionVideo, type VideoNote } from '@/lib/types'
 import type { Comment } from '@/lib/supabase'
 import clsx from 'clsx'
@@ -108,9 +108,11 @@ export default function VideoWatchView({
   const [timestampRaw, setTimestampRaw] = useState('')
   const [sendToCaptain, setSendToCaptain] = useState(false)
   const [posting, setPosting] = useState(false)
+  const [commentsExpanded, setCommentsExpanded] = useState(false)
 
   const backdropRef = useRef<HTMLDivElement>(null)
   const threadRef = useRef<HTMLDivElement>(null)
+  const composerRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -203,6 +205,11 @@ export default function VideoWatchView({
     } finally {
       setPosting(false)
     }
+  }
+
+  function expandAndFocusComposer() {
+    setCommentsExpanded(true)
+    setTimeout(() => composerRef.current?.focus(), 50)
   }
 
   const sorted = [...comments].sort((a, b) => {
@@ -364,104 +371,152 @@ export default function VideoWatchView({
             </div>
           )}
 
-          {/* Comment composer */}
-          <div className="p-4 border-b border-gray-100 space-y-3 shrink-0">
-            <div className="flex items-center gap-2">
-              <div className={clsx('h-6 w-6 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0', avatarColor(userName))}>
-                {initials(userName)}
-              </div>
-              <span className="text-xs font-medium text-gray-600">{userName}</span>
-            </div>
-
-            <textarea
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postComment() }}
-              rows={3}
-              placeholder="Leave a comment… (⌘+Enter to post)"
-              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            />
-
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Clock className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                <input
-                  type="text"
-                  value={timestampRaw}
-                  onChange={(e) => setTimestampRaw(e.target.value)}
-                  placeholder="Timestamp (optional) — e.g. 1:23"
-                  className={clsx(
-                    'flex-1 px-2.5 py-1.5 border rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500',
-                    timestampInvalid ? 'border-red-300 bg-red-50' : 'border-gray-200'
-                  )}
-                />
-              </div>
-              {timestampInvalid && <p className="text-xs text-red-500 pl-5">Use M:SS or H:MM:SS format</p>}
-              {!timestampInvalid && parsedTimestamp !== null && (
-                <p className="text-xs text-blue-600 pl-5">Will post at {formatTime(parsedTimestamp)}</p>
-              )}
-            </div>
-
-            <label className="flex items-center gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={sendToCaptain}
-                onChange={(e) => setSendToCaptain(e.target.checked)}
-                className="rounded border-gray-300 text-blue-600"
-              />
-              <Shield className="h-3.5 w-3.5 text-gray-400 group-hover:text-blue-500 transition-colors" />
-              <span className="text-xs text-gray-600">Submit to captain for review session</span>
-            </label>
-
-            <button
-              onClick={postComment}
-              disabled={posting || !commentText.trim() || timestampInvalid}
-              className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <Send className="h-3.5 w-3.5" />
-              {posting ? 'Posting…' : 'Post comment'}
-            </button>
-          </div>
-
-          {/* Comment thread */}
-          <div ref={threadRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-              {comments.length} comment{comments.length !== 1 ? 's' : ''}
-            </p>
-            {loadingComments && <p className="text-sm text-gray-400">Loading…</p>}
-            {!loadingComments && sorted.length === 0 && (
-              <p className="text-sm text-gray-400 italic">No comments yet. Be the first!</p>
-            )}
-            {sorted.map((c) => (
-              <div key={c.id} className="flex gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <div className={clsx('h-5 w-5 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0', avatarColor(c.author_name))}>
-                      {initials(c.author_name)}
-                    </div>
-                    <span className="text-xs font-semibold text-gray-800">{c.author_name}</span>
-                    {c.timestamp_seconds != null && (
-                      <button
-                        onClick={() => seekTo(c.timestamp_seconds!)}
-                        title="Jump to this moment"
-                        className="flex items-center gap-1 px-2 py-0.5 bg-blue-600 text-white text-xs font-mono font-bold rounded-full hover:bg-blue-700 active:scale-95 transition-all"
-                      >
-                        ▶ {formatTime(c.timestamp_seconds)}
-                      </button>
+          {/* Comments section — collapsible */}
+          {!commentsExpanded ? (
+            /* ── Collapsed: compact summary bar ── */
+            <div className="border-b border-gray-100 shrink-0">
+              <button
+                onClick={() => setCommentsExpanded(true)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-600">
+                    {loadingComments ? 'Loading comments…' : (
+                      comments.length === 0
+                        ? 'No comments yet'
+                        : `${comments.length} comment${comments.length !== 1 ? 's' : ''}`
                     )}
-                    <span className="text-xs text-gray-400">{timeAgo(c.created_at)}</span>
-                    {c.send_to_captain && (
-                      <span className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full font-medium">
-                        <Shield className="h-2.5 w-2.5" />
-                        For review
-                      </span>
+                  </span>
+                </div>
+                <ChevronDown className="h-4 w-4 text-gray-400" />
+              </button>
+              <div className="px-4 pb-3">
+                <button
+                  onClick={expandAndFocusComposer}
+                  className="w-full flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-xl text-sm text-gray-400 hover:border-blue-300 hover:text-gray-500 transition-colors cursor-text"
+                >
+                  <div className={clsx('h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0', avatarColor(userName))}>
+                    {initials(userName)}
+                  </div>
+                  Leave a comment...
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* ── Expanded: full composer + thread ── */
+            <>
+              {/* Collapse toggle header */}
+              <button
+                onClick={() => setCommentsExpanded(false)}
+                className="w-full px-4 py-2.5 flex items-center justify-between border-b border-gray-100 hover:bg-gray-50 transition-colors shrink-0"
+              >
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-gray-400" />
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Comments ({comments.length})
+                  </span>
+                </div>
+                <ChevronUp className="h-4 w-4 text-gray-400" />
+              </button>
+
+              {/* Comment composer */}
+              <div className="px-4 py-3 border-b border-gray-100 space-y-2.5 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className={clsx('h-5 w-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0', avatarColor(userName))}>
+                    {initials(userName)}
+                  </div>
+                  <span className="text-xs font-medium text-gray-600">{userName}</span>
+                </div>
+
+                <textarea
+                  ref={composerRef}
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postComment() }}
+                  rows={2}
+                  placeholder="Leave a comment... (Cmd+Enter to post)"
+                  className="w-full px-3 py-1.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <Clock className="h-3 w-3 text-gray-400 shrink-0" />
+                    <input
+                      type="text"
+                      value={timestampRaw}
+                      onChange={(e) => setTimestampRaw(e.target.value)}
+                      placeholder="Timestamp — e.g. 1:23"
+                      className={clsx(
+                        'w-28 px-2 py-1 border rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500',
+                        timestampInvalid ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                      )}
+                    />
+                    {timestampInvalid && <span className="text-xs text-red-500">Invalid</span>}
+                    {!timestampInvalid && parsedTimestamp !== null && (
+                      <span className="text-xs text-blue-600">at {formatTime(parsedTimestamp)}</span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-700 leading-relaxed">{c.comment_text}</p>
+                  <button
+                    onClick={postComment}
+                    disabled={posting || !commentText.trim() || timestampInvalid}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <Send className="h-3 w-3" />
+                    {posting ? 'Posting...' : 'Post'}
+                  </button>
                 </div>
+
+                <label className="flex items-center gap-1.5 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={sendToCaptain}
+                    onChange={(e) => setSendToCaptain(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 h-3 w-3"
+                  />
+                  <Shield className="h-3 w-3 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                  <span className="text-xs text-gray-500">Submit to captain for review</span>
+                </label>
               </div>
-            ))}
-          </div>
+
+              {/* Comment thread */}
+              <div ref={threadRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+                {loadingComments && <p className="text-xs text-gray-400">Loading...</p>}
+                {!loadingComments && sorted.length === 0 && (
+                  <p className="text-xs text-gray-400 italic">No comments yet. Be the first!</p>
+                )}
+                {sorted.map((c) => (
+                  <div key={c.id} className="flex gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                        <div className={clsx('h-4 w-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0', avatarColor(c.author_name))}>
+                          {initials(c.author_name)}
+                        </div>
+                        <span className="text-xs font-semibold text-gray-800">{c.author_name}</span>
+                        {c.timestamp_seconds != null && (
+                          <button
+                            onClick={() => seekTo(c.timestamp_seconds!)}
+                            title="Jump to this moment"
+                            className="flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-600 text-white text-[10px] font-mono font-bold rounded-full hover:bg-blue-700 active:scale-95 transition-all"
+                          >
+                            ▶ {formatTime(c.timestamp_seconds)}
+                          </button>
+                        )}
+                        <span className="text-[10px] text-gray-400">{timeAgo(c.created_at)}</span>
+                        {c.send_to_captain && (
+                          <span className="flex items-center gap-0.5 text-[10px] text-blue-600 bg-blue-50 px-1 py-0.5 rounded-full font-medium">
+                            <Shield className="h-2 w-2" />
+                            Review
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-700 leading-relaxed">{c.comment_text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
