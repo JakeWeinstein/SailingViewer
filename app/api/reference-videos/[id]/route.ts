@@ -33,6 +33,7 @@ export async function PATCH(
   if ('title' in body) updates.title = body.title
   if ('type' in body) updates.type = body.type
   if ('video_ref' in body) updates.video_ref = body.video_ref
+  if ('start_seconds' in body) updates.start_seconds = body.start_seconds ?? null
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })

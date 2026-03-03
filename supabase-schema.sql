@@ -32,9 +32,13 @@ CREATE TABLE reference_videos (
   note TEXT,
   note_timestamp INTEGER,        -- seconds
   folder_id UUID REFERENCES reference_folders(id) ON DELETE SET NULL,
+  parent_video_id UUID REFERENCES reference_videos(id) ON DELETE CASCADE,
+  start_seconds INTEGER,         -- chapter start time in seconds
   sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX reference_videos_parent_idx ON reference_videos(parent_video_id);
 
 -- Reference library folder hierarchy (two levels: top-level + sub-folders)
 CREATE TABLE reference_folders (
@@ -83,3 +87,9 @@ CREATE TABLE articles (
 
 -- Phase 4: Learning articles
 -- CREATE TABLE IF NOT EXISTS articles ( ... ); -- run the block above
+
+-- Phase 5: Video chapters (long-form video splitting)
+-- ALTER TABLE reference_videos
+--   ADD COLUMN IF NOT EXISTS parent_video_id UUID REFERENCES reference_videos(id) ON DELETE CASCADE,
+--   ADD COLUMN IF NOT EXISTS start_seconds INTEGER;
+-- CREATE INDEX IF NOT EXISTS reference_videos_parent_idx ON reference_videos(parent_video_id);

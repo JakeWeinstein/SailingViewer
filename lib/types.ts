@@ -22,6 +22,8 @@ export type ReferenceVideo = {
   note_timestamp?: number
   notes?: VideoNote[]  // new multiple notes
   folder_id?: string | null
+  parent_video_id?: string | null  // non-null for chapter entries
+  start_seconds?: number | null    // chapter start timestamp in seconds
   created_at: string
 }
 
@@ -76,6 +78,25 @@ export function youtubeEmbedUrl(id: string, startSeconds?: number) {
   return startSeconds
     ? `https://www.youtube.com/embed/${id}?start=${startSeconds}`
     : `https://www.youtube.com/embed/${id}`
+}
+
+/** Parse a human-entered timestamp (H:MM:SS, M:SS, MM:SS, or raw seconds) into total seconds */
+export function parseTimestamp(input: string): number | null {
+  const parts = input.trim().replace(/s$/, '').split(':').map(Number)
+  if (parts.some(isNaN)) return null
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+  if (parts.length === 2) return parts[0] * 60 + parts[1]
+  if (parts.length === 1) return parts[0]
+  return null
+}
+
+/** Format seconds into a human-readable timestamp string */
+export function formatTime(seconds: number): string {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 /** Extract a Drive file ID from a share URL or raw ID string */

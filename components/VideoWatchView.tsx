@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
-import { embedUrl, youtubeEmbedUrl, type SessionVideo, type VideoNote } from '@/lib/types'
+import { embedUrl, youtubeEmbedUrl, parseTimestamp, formatTime, type SessionVideo, type VideoNote } from '@/lib/types'
 import type { Comment } from '@/lib/supabase'
 import clsx from 'clsx'
 
@@ -20,24 +20,9 @@ interface VideoWatchViewProps {
   mediaId?: string
   videoType?: 'drive' | 'youtube'
   noteApiPath?: string
+  startSeconds?: number  // Chapter start time — seek on initial load
   // Legacy callback (kept for callers that haven't migrated)
   onNoteUpdated?: (videoId: string, note: string, noteTimestamp?: number) => void
-}
-
-function formatTime(s: number) {
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
-  return `${m}:${String(sec).padStart(2, '0')}`
-}
-
-function parseTimestamp(raw: string): number | null {
-  const hms = raw.match(/^(\d{1,2}):(\d{2}):(\d{2})$/)
-  if (hms) return +hms[1] * 3600 + +hms[2] * 60 + +hms[3]
-  const ms = raw.match(/^(\d{1,2}):(\d{2})$/)
-  if (ms && +ms[2] < 60) return +ms[1] * 60 + +ms[2]
-  const secs = raw.match(/^(\d+)s?$/)
-  if (secs) return +secs[1]
-  return null
 }
 
 function timeAgo(dateStr: string) {
@@ -67,17 +52,22 @@ function avatarColor(name: string) {
 export default function VideoWatchView({
   video, sessionId, activeSessionId, userName, isCaptain = false,
   isFavorited = false, onFavoriteToggle, onClose, onNotesUpdated, onNoteUpdated,
-  mediaId, videoType = 'drive', noteApiPath,
+  mediaId, videoType = 'drive', noteApiPath, startSeconds,
 }: VideoWatchViewProps) {
   const effectiveMediaId = mediaId ?? video.id
 
   const [comments, setComments] = useState<Comment[]>([])
   const [loadingComments, setLoadingComments] = useState(true)
-  const [iframeSrc, setIframeSrc] = useState(() =>
-    videoType === 'youtube'
-      ? youtubeEmbedUrl(effectiveMediaId)
+  const [iframeSrc, setIframeSrc] = useState(() => {
+    if (videoType === 'youtube') {
+      return startSeconds
+        ? `https://www.youtube.com/embed/${effectiveMediaId}?start=${startSeconds}`
+        : youtubeEmbedUrl(effectiveMediaId)
+    }
+    return startSeconds
+      ? `${embedUrl(effectiveMediaId)}#t=${startSeconds}`
       : embedUrl(effectiveMediaId)
-  )
+  })
 
   // Resolve notes — support both new array format and legacy single note
   function resolveNotes(v: SessionVideo): VideoNote[] {

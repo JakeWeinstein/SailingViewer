@@ -1,13 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Play, BookOpen, Youtube, HardDrive, X, FolderOpen, ChevronDown, Film } from 'lucide-react'
+import { Plus, Trash2, Play, BookOpen, Youtube, HardDrive, X, FolderOpen, ChevronDown, Film, Scissors, Layers } from 'lucide-react'
 import VideoWatchView from './VideoWatchView'
 import FolderManager from './FolderManager'
+import ChapterEditor from './ChapterEditor'
 import {
   type ReferenceVideo,
   type ReferenceFolder,
   type SessionVideo,
+  formatTime,
   youtubeThumbnailUrl,
   thumbnailUrl,
   extractYouTubeInfo,
@@ -16,12 +18,6 @@ import {
 import clsx from 'clsx'
 
 type AddType = 'youtube' | 'drive' | 'practice'
-
-function formatTime(s: number) {
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
-  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
-  return `${m}:${String(sec).padStart(2, '0')}`
-}
 
 interface BrowseSession {
   id: string
@@ -43,6 +39,9 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
   const [watchTarget, setWatchTarget] = useState<ReferenceVideo | null>(null)
   const [showFolderManager, setShowFolderManager] = useState(false)
   const [isDragOverUnfoldered, setIsDragOverUnfoldered] = useState(false)
+
+  // Chapter editor
+  const [chapterSource, setChapterSource] = useState<ReferenceVideo | null>(null)
 
   // Add form
   const [showAdd, setShowAdd] = useState(false)
@@ -80,6 +79,18 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
         .finally(() => setPracticeLoading(false))
     }
   }, [addType, practiceSessions.length])
+
+  // Helper: count chapters for a given source video
+  function getChapterCount(sourceId: string): number {
+    return videos.filter((v) => v.parent_video_id === sourceId).length
+  }
+
+  // Helper: get chapters for a given source video, sorted by start_seconds
+  function getChaptersOf(sourceId: string): ReferenceVideo[] {
+    return videos
+      .filter((v) => v.parent_video_id === sourceId)
+      .sort((a, b) => (a.start_seconds ?? 0) - (b.start_seconds ?? 0))
+  }
 
   async function handleAdd() {
     setAddError('')
@@ -140,9 +151,16 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Remove this video from the reference library?')) return
+    const childCount = getChapterCount(id)
+    const msg = childCount > 0
+      ? `This will also remove ${childCount} chapter${childCount !== 1 ? 's' : ''}. Continue?`
+      : 'Remove this video from the reference library?'
+    if (!confirm(msg)) return
     const res = await fetch(`/api/reference-videos/${id}`, { method: 'DELETE' })
-    if (res.ok) setVideos((prev) => prev.filter((v) => v.id !== id))
+    if (res.ok) {
+      // Remove the video and all its chapters from local state
+      setVideos((prev) => prev.filter((v) => v.id !== id && v.parent_video_id !== id))
+    }
   }
 
   function handleNotesUpdated(dbId: string, notes: import('@/lib/types').VideoNote[]) {
@@ -160,6 +178,11 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
     })
   }
 
+  function handleChaptersCreated(chapters: ReferenceVideo[]) {
+    setVideos((prev) => [...prev, ...chapters])
+    setChapterSource(null)
+  }
+
   // Organize videos into folder hierarchy
   const topFolders = folders.filter((f) => !f.parent_id).sort((a, b) => a.sort_order - b.sort_order)
   const getSubFolders = (pid: string) => folders.filter((f) => f.parent_id === pid).sort((a, b) => a.sort_order - b.sort_order)
@@ -168,7 +191,6 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
     return videos.filter((v) => v.folder_id === fid)
   }
 
-  // All unique folder IDs present in video data (may include sub-folders)
   const hasContent = videos.length > 0
 
   // Filtered practice videos
@@ -178,10 +200,73 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
       .map((v) => ({ video: v, sessionLabel: s.label }))
   )
 
+  // ── Group videos within a folder for rendering ──
+  // Returns: standalone videos + source+chapter groups, in order
+  function groupFolderVideos(folderVideos: ReferenceVideo[]): Array<
+    | { kind: 'standalone'; video: ReferenceVideo }
+    | { kind: 'group'; source: ReferenceVideo; chapters: ReferenceVideo[] }
+  > {
+    const result: Array<
+      | { kind: 'standalone'; video: ReferenceVideo }
+      | { kind: 'group'; source: ReferenceVideo; chapters: ReferenceVideo[] }
+    > = []
+
+    // Collect IDs of all chapter videos in this folder
+    const chapterIdsInFolder = new Set(
+      folderVideos.filter((v) => v.parent_video_id).map((v) => v.id)
+    )
+
+    // Collect parent IDs that have chapters in this folder
+    const parentIdsWithChapters = new Set(
+      folderVideos.filter((v) => v.parent_video_id).map((v) => v.parent_video_id!)
+    )
+
+    // Process non-chapter videos first
+    for (const video of folderVideos) {
+      if (video.parent_video_id) continue // skip chapters, handled in groups
+
+      const chapters = getChaptersOf(video.id).filter((ch) => chapterIdsInFolder.has(ch.id))
+      if (chapters.length > 0) {
+        result.push({ kind: 'group', source: video, chapters })
+      } else {
+        result.push({ kind: 'standalone', video })
+      }
+    }
+
+    // Handle orphan chapters (parent in different folder or parent not in this folder view)
+    const orphanChapters = folderVideos.filter(
+      (v) => v.parent_video_id && !folderVideos.some((fv) => fv.id === v.parent_video_id)
+    )
+    if (orphanChapters.length > 0) {
+      // Group by parent_video_id
+      const byParent = new Map<string, ReferenceVideo[]>()
+      for (const ch of orphanChapters) {
+        const pid = ch.parent_video_id!
+        if (!byParent.has(pid)) byParent.set(pid, [])
+        byParent.get(pid)!.push(ch)
+      }
+      for (const [parentId, chapters] of byParent) {
+        const parentVideo = videos.find((v) => v.id === parentId)
+        if (parentVideo) {
+          result.push({ kind: 'group', source: parentVideo, chapters: chapters.sort((a, b) => (a.start_seconds ?? 0) - (b.start_seconds ?? 0)) })
+        } else {
+          // No parent found, show as standalone
+          for (const ch of chapters) {
+            result.push({ kind: 'standalone', video: ch })
+          }
+        }
+      }
+    }
+
+    return result
+  }
+
   function VideoCard({ video }: { video: ReferenceVideo }) {
     const thumb = video.type === 'youtube'
       ? youtubeThumbnailUrl(video.video_ref)
       : thumbnailUrl(video.video_ref)
+    const isChapter = !!video.parent_video_id
+    const chapterCount = !isChapter ? getChapterCount(video.id) : 0
     return (
       <div
         draggable={isCaptain}
@@ -190,7 +275,8 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
           e.dataTransfer.effectAllowed = 'move'
         } : undefined}
         className={clsx(
-          'group relative bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-blue-200 transition-all',
+          'group relative bg-white rounded-xl border overflow-hidden hover:shadow-md hover:border-blue-200 transition-all',
+          isChapter ? 'border-l-2 border-purple-400 border-t border-r border-b border-t-gray-100 border-r-gray-100 border-b-gray-100' : 'border-gray-100',
           isCaptain && 'cursor-grab active:cursor-grabbing active:opacity-50'
         )}
       >
@@ -216,6 +302,19 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
               {video.type === 'youtube' ? <Youtube className="h-2.5 w-2.5" /> : <HardDrive className="h-2.5 w-2.5" />}
               {video.type === 'youtube' ? 'YouTube' : 'Drive'}
             </div>
+            {/* Timestamp badge for chapters */}
+            {video.start_seconds != null && video.start_seconds > 0 && (
+              <div className="absolute bottom-1.5 right-1.5 bg-black/75 text-white text-xs font-mono rounded px-1.5 py-0.5">
+                {formatTime(video.start_seconds)}
+              </div>
+            )}
+            {/* Chapter count badge for source videos */}
+            {chapterCount > 0 && (
+              <div className="absolute top-1.5 right-1.5 flex items-center gap-1 bg-purple-600/90 text-white text-xs font-medium rounded-full px-1.5 py-0.5">
+                <Layers className="h-2.5 w-2.5" />
+                {chapterCount}
+              </div>
+            )}
           </div>
           <div className="px-3 pt-2 pb-1">
             <p className="text-xs font-medium text-gray-800 line-clamp-2 leading-snug">{video.title}</p>
@@ -223,7 +322,19 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
           </div>
         </button>
         {isCaptain && (
-          <div className="px-3 pb-2.5 flex justify-end">
+          <div className="px-3 pb-2.5 flex items-center justify-between">
+            {/* Create chapters button — only for non-chapter videos */}
+            {!isChapter && (
+              <button
+                onClick={() => setChapterSource(video)}
+                className="flex items-center gap-1 text-xs text-purple-500 hover:text-purple-700 transition-colors"
+                title="Create chapters"
+              >
+                <Scissors className="h-3 w-3" />
+                <span className="hidden sm:inline">Chapters</span>
+              </button>
+            )}
+            {isChapter && <span />}
             <button
               onClick={() => handleDelete(video.id)}
               className="p-1 rounded-full hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors"
@@ -237,13 +348,58 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
     )
   }
 
+  function VideoGrid({ folderVideos }: { folderVideos: ReferenceVideo[] }) {
+    const groups = groupFolderVideos(folderVideos)
+
+    return (
+      <div className="space-y-4 mb-4">
+        {groups.map((item) => {
+          if (item.kind === 'standalone') {
+            return (
+              <div key={item.video.id} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                <VideoCard video={item.video} />
+              </div>
+            )
+          }
+
+          // Group: source + chapters
+          return (
+            <div key={item.source.id}>
+              {/* Group header */}
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-px flex-1 bg-purple-100" />
+                <span className="text-xs font-medium text-purple-500 whitespace-nowrap">
+                  {item.source.title} — {item.chapters.length} chapter{item.chapters.length !== 1 ? 's' : ''}
+                </span>
+                {isCaptain && (
+                  <button
+                    onClick={() => setChapterSource(item.source)}
+                    className="text-xs text-purple-400 hover:text-purple-600 transition-colors whitespace-nowrap"
+                  >
+                    Edit chapters
+                  </button>
+                )}
+                <div className="h-px flex-1 bg-purple-100" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                <VideoCard video={item.source} />
+                {item.chapters.map((ch) => (
+                  <VideoCard key={ch.id} video={ch} />
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
   function FolderSection({ folder, depth = 0 }: { folder: ReferenceFolder; depth?: number }) {
     const [open, setOpen] = useState(true)
     const [isDragOver, setIsDragOver] = useState(false)
     const subFolders = getSubFolders(folder.id)
     const folderVideos = getVideosInFolder(folder.id)
     if (folderVideos.length === 0 && subFolders.every((sf) => getVideosInFolder(sf.id).length === 0)) {
-      // Show even if empty so captain can see folder structure
       if (!isCaptain) return null
     }
 
@@ -282,9 +438,7 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
               <FolderSection key={sf.id} folder={sf} depth={depth + 1} />
             ))}
             {folderVideos.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
-                {folderVideos.map((v) => <VideoCard key={v.id} video={v} />)}
-              </div>
+              <VideoGrid folderVideos={folderVideos} />
             )}
           </>
         )}
@@ -518,9 +672,7 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
                   Drop here to remove from folder
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {unfolderedVideos.map((video) => <VideoCard key={video.id} video={video} />)}
-                </div>
+                <VideoGrid folderVideos={unfolderedVideos} />
               )}
             </div>
           )}
@@ -541,11 +693,22 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
           activeSessionId={activeSessionId}
           mediaId={watchTarget.video_ref}
           videoType={watchTarget.type}
+          startSeconds={watchTarget.start_seconds ?? undefined}
           noteApiPath={isCaptain ? `/api/reference-videos/${watchTarget.id}` : undefined}
           userName={userName}
           isCaptain={isCaptain}
           onNotesUpdated={isCaptain ? handleNotesUpdated : undefined}
           onClose={() => setWatchTarget(null)}
+        />
+      )}
+
+      {/* Chapter editor */}
+      {chapterSource && (
+        <ChapterEditor
+          sourceVideo={chapterSource}
+          folders={folders}
+          onChaptersCreated={handleChaptersCreated}
+          onClose={() => setChapterSource(null)}
         />
       )}
     </div>
