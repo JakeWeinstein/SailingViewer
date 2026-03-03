@@ -691,6 +691,7 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
 
         return (
           <VideoWatchView
+            key={watchTarget.video_ref}
             video={{
               id: watchTarget.id,
               name: watchTarget.title,

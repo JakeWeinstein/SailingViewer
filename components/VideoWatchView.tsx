@@ -1,10 +1,42 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers } from 'lucide-react'
 import { embedUrl, youtubeEmbedUrl, parseTimestamp, formatTime, type SessionVideo, type VideoNote, type ReferenceVideo } from '@/lib/types'
 import type { Comment } from '@/lib/supabase'
 import clsx from 'clsx'
+
+/* ── YouTube IFrame API type declarations ── */
+declare global {
+  interface Window {
+    YT: {
+      Player: new (
+        elementId: string,
+        options: {
+          videoId: string
+          playerVars?: Record<string, number | string>
+          events?: {
+            onReady?: (event: { target: YTPlayer }) => void
+            onStateChange?: (event: { data: number }) => void
+          }
+        }
+      ) => YTPlayer
+      PlayerState: {
+        PLAYING: number
+        PAUSED: number
+        ENDED: number
+      }
+    }
+    onYouTubeIframeAPIReady: () => void
+  }
+}
+
+interface YTPlayer {
+  getCurrentTime: () => number
+  seekTo: (seconds: number, allowSeekAhead: boolean) => void
+  destroy: () => void
+  getPlayerState: () => number
+}
 
 interface VideoWatchViewProps {
   video: SessionVideo
@@ -60,9 +92,13 @@ export default function VideoWatchView({
 }: VideoWatchViewProps) {
   const effectiveMediaId = mediaId ?? video.id
 
+  // Determine whether to use the YouTube Player API (YouTube + has chapters)
+  const useYTPlayer = videoType === 'youtube' && !!siblingChapters && siblingChapters.length > 1
+
   const [comments, setComments] = useState<Comment[]>([])
   const [loadingComments, setLoadingComments] = useState(true)
   const [iframeSrc, setIframeSrc] = useState(() => {
+    if (useYTPlayer) return '' // Player API handles the embed
     if (videoType === 'youtube') {
       return startSeconds
         ? `https://www.youtube.com/embed/${effectiveMediaId}?start=${startSeconds}`
@@ -73,6 +109,134 @@ export default function VideoWatchView({
       : embedUrl(effectiveMediaId)
   })
 
+  // ── YouTube Player API state ──
+  const ytPlayerRef = useRef<YTPlayer | null>(null)
+  const ytContainerIdRef = useRef(`yt-player-${effectiveMediaId}`)
+  const [activeChapterId, setActiveChapterId] = useState(video.id)
+  const activeChapterIdRef = useRef(video.id)
+  const startSecondsRef = useRef(startSeconds)
+  const onChapterChangeRef = useRef(onChapterChange)
+  const siblingChaptersRef = useRef(siblingChapters)
+
+  // Keep refs in sync
+  useEffect(() => { onChapterChangeRef.current = onChapterChange }, [onChapterChange])
+  useEffect(() => { siblingChaptersRef.current = siblingChapters }, [siblingChapters])
+
+  // ── Load YouTube IFrame API script ──
+  useEffect(() => {
+    if (!useYTPlayer) return
+
+    // If the API is already loaded, create the player immediately
+    if (window.YT && window.YT.Player) {
+      createPlayer()
+      return
+    }
+
+    // Check if script tag already exists (from a previous mount)
+    const existingScript = document.querySelector('script[src="https://www.youtube.com/iframe_api"]')
+    if (existingScript) {
+      // Script is loading but not yet ready — wait for the callback
+      const prevCallback = window.onYouTubeIframeAPIReady
+      window.onYouTubeIframeAPIReady = () => {
+        prevCallback?.()
+        createPlayer()
+      }
+      return
+    }
+
+    // Load the script
+    const script = document.createElement('script')
+    script.src = 'https://www.youtube.com/iframe_api'
+    script.async = true
+    window.onYouTubeIframeAPIReady = () => {
+      createPlayer()
+    }
+    document.head.appendChild(script)
+
+    function createPlayer() {
+      // Guard: container div must exist, player not already created
+      if (ytPlayerRef.current) return
+      const container = document.getElementById(ytContainerIdRef.current)
+      if (!container) return
+
+      ytPlayerRef.current = new window.YT.Player(ytContainerIdRef.current, {
+        videoId: effectiveMediaId,
+        playerVars: {
+          autoplay: 0,
+          start: startSecondsRef.current ?? 0,
+          rel: 0,
+          modestbranding: 1,
+        },
+        events: {
+          onReady: (event) => {
+            if (startSecondsRef.current != null && startSecondsRef.current > 0) {
+              event.target.seekTo(startSecondsRef.current, true)
+            }
+          },
+        },
+      })
+    }
+
+    return () => {
+      // Cleanup: destroy the player on unmount
+      if (ytPlayerRef.current) {
+        try { ytPlayerRef.current.destroy() } catch { /* ignore */ }
+        ytPlayerRef.current = null
+      }
+    }
+    // Only re-run if we switch between YT player and non-YT player mode, or if the media changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useYTPlayer, effectiveMediaId])
+
+  // ── Poll getCurrentTime for active chapter auto-tracking ──
+  useEffect(() => {
+    if (!useYTPlayer || !siblingChapters || siblingChapters.length <= 1) return
+
+    const interval = setInterval(() => {
+      const player = ytPlayerRef.current
+      if (!player || typeof player.getCurrentTime !== 'function') return
+
+      try {
+        const currentTime = player.getCurrentTime()
+        const chapters = siblingChaptersRef.current
+        if (!chapters) return
+
+        // Find the active chapter: the last chapter whose start_seconds <= currentTime
+        let activeChapter = chapters[0]
+        for (let i = chapters.length - 1; i >= 0; i--) {
+          if ((chapters[i].start_seconds ?? 0) <= currentTime) {
+            activeChapter = chapters[i]
+            break
+          }
+        }
+
+        if (activeChapter && activeChapter.id !== activeChapterIdRef.current) {
+          activeChapterIdRef.current = activeChapter.id
+          setActiveChapterId(activeChapter.id)
+          onChapterChangeRef.current?.(activeChapter)
+        }
+      } catch {
+        // Player may not be ready yet — ignore
+      }
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [useYTPlayer, siblingChapters])
+
+  // ── Handle chapter click: seek instead of re-mount ──
+  const handleChapterClick = useCallback((chapter: ReferenceVideo) => {
+    if (useYTPlayer && ytPlayerRef.current) {
+      const seekTarget = chapter.start_seconds ?? 0
+      ytPlayerRef.current.seekTo(seekTarget, true)
+      activeChapterIdRef.current = chapter.id
+      setActiveChapterId(chapter.id)
+      onChapterChangeRef.current?.(chapter)
+    } else {
+      // Fallback for non-YT: use the original onChapterChange to swap the view
+      onChapterChange?.(chapter)
+    }
+  }, [useYTPlayer, onChapterChange])
+
   // Resolve notes — support both new array format and legacy single note
   function resolveNotes(v: SessionVideo): VideoNote[] {
     if (v.notes && v.notes.length > 0) return v.notes
@@ -81,6 +245,12 @@ export default function VideoWatchView({
   }
 
   const [notes, setNotes] = useState<VideoNote[]>(() => resolveNotes(video))
+
+  // Sync notes when the parent updates video props (e.g., chapter switch without re-mount)
+  useEffect(() => {
+    setNotes(resolveNotes(video))
+  }, [video.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const [addingNote, setAddingNote] = useState(false)
   const [newNoteText, setNewNoteText] = useState('')
   const [newNoteTimestampRaw, setNewNoteTimestampRaw] = useState('')
@@ -90,7 +260,9 @@ export default function VideoWatchView({
   const newTimestampInvalid = newNoteTimestampRaw.trim() !== '' && parsedNewTimestamp === null
 
   function seekTo(seconds: number) {
-    if (videoType === 'youtube') {
+    if (useYTPlayer && ytPlayerRef.current) {
+      ytPlayerRef.current.seekTo(seconds, true)
+    } else if (videoType === 'youtube') {
       setIframeSrc(`https://www.youtube.com/embed/${effectiveMediaId}?start=${seconds}&autoplay=1`)
     } else {
       setIframeSrc(`${embedUrl(effectiveMediaId)}#t=${seconds}`)
@@ -233,14 +405,18 @@ export default function VideoWatchView({
         {/* ── Left: Video ── */}
         <div className="w-full md:w-[65%] bg-black flex flex-col">
           <div className="aspect-video w-full">
-            <iframe
-              key={iframeSrc}
-              src={iframeSrc}
-              className="w-full h-full"
-              allow="autoplay"
-              allowFullScreen
-              title={video.name}
-            />
+            {useYTPlayer ? (
+              <div id={ytContainerIdRef.current} className="w-full h-full" />
+            ) : (
+              <iframe
+                key={iframeSrc}
+                src={iframeSrc}
+                className="w-full h-full"
+                allow="autoplay"
+                allowFullScreen
+                title={video.name}
+              />
+            )}
           </div>
           <div className="bg-gray-900 px-4 py-2.5 flex items-center gap-3">
             <div className="flex-1 min-w-0">
@@ -278,11 +454,11 @@ export default function VideoWatchView({
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {siblingChapters.map((ch) => {
-                  const isActive = ch.id === video.id
+                  const isActive = useYTPlayer ? ch.id === activeChapterId : ch.id === video.id
                   return (
                     <button
                       key={ch.id}
-                      onClick={() => { if (!isActive) onChapterChange(ch) }}
+                      onClick={() => { if (!isActive) handleChapterClick(ch) }}
                       className={clsx(
                         'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all',
                         isActive
