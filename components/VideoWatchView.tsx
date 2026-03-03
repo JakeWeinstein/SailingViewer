@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
-import { embedUrl, youtubeEmbedUrl, parseTimestamp, formatTime, type SessionVideo, type VideoNote } from '@/lib/types'
+import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers } from 'lucide-react'
+import { embedUrl, youtubeEmbedUrl, parseTimestamp, formatTime, type SessionVideo, type VideoNote, type ReferenceVideo } from '@/lib/types'
 import type { Comment } from '@/lib/supabase'
 import clsx from 'clsx'
 
@@ -21,6 +21,9 @@ interface VideoWatchViewProps {
   videoType?: 'drive' | 'youtube'
   noteApiPath?: string
   startSeconds?: number  // Chapter start time — seek on initial load
+  // Chapter navigation
+  siblingChapters?: ReferenceVideo[]  // all chapters sharing same parent, sorted by start_seconds
+  onChapterChange?: (chapter: ReferenceVideo) => void  // switch watchTarget to a different chapter
   // Legacy callback (kept for callers that haven't migrated)
   onNoteUpdated?: (videoId: string, note: string, noteTimestamp?: number) => void
 }
@@ -53,6 +56,7 @@ export default function VideoWatchView({
   video, sessionId, activeSessionId, userName, isCaptain = false,
   isFavorited = false, onFavoriteToggle, onClose, onNotesUpdated, onNoteUpdated,
   mediaId, videoType = 'drive', noteApiPath, startSeconds,
+  siblingChapters, onChapterChange,
 }: VideoWatchViewProps) {
   const effectiveMediaId = mediaId ?? video.id
 
@@ -262,6 +266,42 @@ export default function VideoWatchView({
 
         {/* ── Right panel ── */}
         <div className="flex-1 md:absolute md:inset-y-0 md:right-0 md:w-[35%] flex flex-col overflow-hidden border-l border-gray-100">
+
+          {/* Chapter navigation */}
+          {siblingChapters && siblingChapters.length > 1 && onChapterChange && (
+            <div className="border-b border-purple-100 bg-purple-50 px-4 py-2.5 shrink-0">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Layers className="h-3.5 w-3.5 text-purple-500" />
+                <span className="text-xs font-semibold text-purple-700">
+                  Chapters ({siblingChapters.length})
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {siblingChapters.map((ch) => {
+                  const isActive = ch.id === video.id
+                  return (
+                    <button
+                      key={ch.id}
+                      onClick={() => { if (!isActive) onChapterChange(ch) }}
+                      className={clsx(
+                        'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all',
+                        isActive
+                          ? 'bg-purple-600 text-white shadow-sm'
+                          : 'bg-white text-purple-700 border border-purple-200 hover:bg-purple-100 hover:border-purple-300'
+                      )}
+                    >
+                      {ch.start_seconds != null && ch.start_seconds > 0 && (
+                        <span className={clsx('font-mono text-[10px]', isActive ? 'text-purple-200' : 'text-purple-400')}>
+                          {formatTime(ch.start_seconds)}
+                        </span>
+                      )}
+                      <span className="max-w-[120px] truncate">{ch.title}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Captain notes section */}
           {(isCaptain || hasNotes) && (

@@ -395,7 +395,7 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
   }
 
   function FolderSection({ folder, depth = 0 }: { folder: ReferenceFolder; depth?: number }) {
-    const [open, setOpen] = useState(true)
+    const [open, setOpen] = useState(false)
     const [isDragOver, setIsDragOver] = useState(false)
     const subFolders = getSubFolders(folder.id)
     const folderVideos = getVideosInFolder(folder.id)
@@ -680,27 +680,39 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
       )}
 
       {/* Video viewer */}
-      {watchTarget && (
-        <VideoWatchView
-          video={{
-            id: watchTarget.id,
-            name: watchTarget.title,
-            note: watchTarget.note,
-            noteTimestamp: watchTarget.note_timestamp,
-            notes: watchTarget.notes,
-          }}
-          sessionId=""
-          activeSessionId={activeSessionId}
-          mediaId={watchTarget.video_ref}
-          videoType={watchTarget.type}
-          startSeconds={watchTarget.start_seconds ?? undefined}
-          noteApiPath={isCaptain ? `/api/reference-videos/${watchTarget.id}` : undefined}
-          userName={userName}
-          isCaptain={isCaptain}
-          onNotesUpdated={isCaptain ? handleNotesUpdated : undefined}
-          onClose={() => setWatchTarget(null)}
-        />
-      )}
+      {watchTarget && (() => {
+        // Collect sibling chapters if this is a chapter video
+        const parentId = watchTarget.parent_video_id
+        const siblings = parentId
+          ? videos
+              .filter((v) => v.parent_video_id === parentId)
+              .sort((a, b) => (a.start_seconds ?? 0) - (b.start_seconds ?? 0))
+          : undefined
+
+        return (
+          <VideoWatchView
+            video={{
+              id: watchTarget.id,
+              name: watchTarget.title,
+              note: watchTarget.note,
+              noteTimestamp: watchTarget.note_timestamp,
+              notes: watchTarget.notes,
+            }}
+            sessionId=""
+            activeSessionId={activeSessionId}
+            mediaId={watchTarget.video_ref}
+            videoType={watchTarget.type}
+            startSeconds={watchTarget.start_seconds ?? undefined}
+            siblingChapters={siblings}
+            onChapterChange={(chapter) => setWatchTarget(chapter)}
+            noteApiPath={isCaptain ? `/api/reference-videos/${watchTarget.id}` : undefined}
+            userName={userName}
+            isCaptain={isCaptain}
+            onNotesUpdated={isCaptain ? handleNotesUpdated : undefined}
+            onClose={() => setWatchTarget(null)}
+          />
+        )
+      })()}
 
       {/* Chapter editor */}
       {chapterSource && (
