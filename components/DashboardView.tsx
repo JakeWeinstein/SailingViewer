@@ -52,6 +52,7 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
   const [sidebarView, setSidebarView] = useState<SidebarView>('session')
   const [mainTab, setMainTab] = useState<MainTab>('review')
   const [reviewComments, setReviewComments] = useState<Comment[]>([])
+  const [qaReviewComments, setQaReviewComments] = useState<Comment[]>([])
   const [loadingReview, setLoadingReview] = useState(false)
   const [expandedVideos, setExpandedVideos] = useState<Set<string>>(new Set())
   const [showVideoManager, setShowVideoManager] = useState(false)
@@ -67,8 +68,12 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
   const fetchReview = useCallback(async (sessionId: string) => {
     setLoadingReview(true)
     try {
-      const res = await fetch(`/api/comments?sessionId=${sessionId}&captainOnly=true`)
-      if (res.ok) setReviewComments(await res.json())
+      const [sessionRes, qaRes] = await Promise.all([
+        fetch(`/api/comments?sessionId=${sessionId}&captainOnly=true`),
+        fetch('/api/comments?type=qa&captainOnly=true'),
+      ])
+      if (sessionRes.ok) setReviewComments(await sessionRes.json())
+      if (qaRes.ok) setQaReviewComments(await qaRes.json())
     } finally {
       setLoadingReview(false)
     }
@@ -136,18 +141,27 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
   const reviewGroups = useMemo(() => {
     const map = new Map<string, { videoTitle: string; comments: Comment[] }>()
     for (const c of reviewComments) {
-      if (!map.has(c.video_id)) map.set(c.video_id, { videoTitle: c.video_title, comments: [] })
-      map.get(c.video_id)!.comments.push(c)
+      const vid = c.video_id ?? '__unknown__'
+      const title = c.video_title ?? 'Unknown video'
+      if (!map.has(vid)) map.set(vid, { videoTitle: title, comments: [] })
+      map.get(vid)!.comments.push(c)
     }
     return [...map.entries()].map(([videoId, { videoTitle, comments }]) => ({ videoId, videoTitle, comments }))
   }, [reviewComments])
 
-  // Unique authors for the filter dropdown
+  // Unique authors for the filter dropdown (include Q&A authors)
   const reviewAuthors = useMemo(() => {
     const names = new Set<string>()
     for (const c of reviewComments) names.add(c.author_name)
+    for (const c of qaReviewComments) names.add(c.author_name)
     return [...names].sort()
-  }, [reviewComments])
+  }, [reviewComments, qaReviewComments])
+
+  // Filtered Q&A review comments
+  const filteredQaReview = useMemo(() => {
+    if (reviewUserFilter === 'all') return qaReviewComments
+    return qaReviewComments.filter((c) => c.author_name === reviewUserFilter)
+  }, [qaReviewComments, reviewUserFilter])
 
   // Filtered review groups
   const filteredReviewGroups = useMemo(() => {
@@ -458,13 +472,36 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
                 {loadingReview && (
                   <p className="text-sm text-gray-400 py-10 text-center">Loading…</p>
                 )}
-                {!loadingReview && filteredReviewGroups.length === 0 && (
+                {!loadingReview && filteredReviewGroups.length === 0 && filteredQaReview.length === 0 && (
                   <div className="text-center py-20 text-gray-400">
                     <Shield className="mx-auto mb-3 h-10 w-10 opacity-30" />
                     <p className="font-medium">No submissions for review yet</p>
                     <p className="text-sm mt-1">Team members can check &ldquo;Submit to captain for review&rdquo; when commenting.</p>
                   </div>
                 )}
+
+                {/* Q&A Review Section */}
+                {filteredQaReview.length > 0 && (
+                  <div className="mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <MessageSquare className="h-4 w-4 text-purple-500" />
+                      <h3 className="text-sm font-semibold text-gray-700">General Q&A</h3>
+                      <span className="text-xs text-gray-400">({filteredQaReview.length})</span>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50">
+                      {filteredQaReview.map((c) => (
+                        <div key={c.id} className="px-5 py-4">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="text-sm font-semibold text-gray-800">{c.author_name}</span>
+                            <span className="text-xs text-gray-400">{timeAgo(c.created_at)}</span>
+                          </div>
+                          <p className="text-sm text-gray-600 leading-relaxed">{c.comment_text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-4">
                   {filteredReviewGroups.map((group) => {
                     const isExpanded = expandedVideos.has(group.videoId)

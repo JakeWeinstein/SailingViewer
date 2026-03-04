@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers } from 'lucide-react'
+import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers, Reply } from 'lucide-react'
 import { embedUrl, youtubeEmbedUrl, parseTimestamp, formatTime, type SessionVideo, type VideoNote, type ReferenceVideo } from '@/lib/types'
+import { timeAgo, initials, avatarColor } from '@/lib/comment-utils'
 import type { Comment } from '@/lib/supabase'
 import clsx from 'clsx'
 
@@ -58,30 +59,6 @@ interface VideoWatchViewProps {
   onChapterChange?: (chapter: ReferenceVideo) => void  // switch watchTarget to a different chapter
   // Legacy callback (kept for callers that haven't migrated)
   onNoteUpdated?: (videoId: string, note: string, noteTimestamp?: number) => void
-}
-
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return 'just now'
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`
-}
-
-function initials(name: string) {
-  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
-}
-
-const AVATAR_COLORS = [
-  'bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-amber-500',
-  'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-rose-500',
-]
-
-function avatarColor(name: string) {
-  let hash = 0
-  for (const c of name) hash = (hash * 31 + c.charCodeAt(0)) & 0xffffffff
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
 }
 
 export default function VideoWatchView({
@@ -276,6 +253,15 @@ export default function VideoWatchView({
   const [posting, setPosting] = useState(false)
   const [commentsExpanded, setCommentsExpanded] = useState(false)
 
+  // Reply state
+  const [replyingTo, setReplyingTo] = useState<string | null>(null)
+  const [replyText, setReplyText] = useState('')
+  const [postingReply, setPostingReply] = useState(false)
+  const [repliesByComment, setRepliesByComment] = useState<Map<string, Comment[]>>(new Map())
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set())
+  const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set())
+  const replyInputRef = useRef<HTMLTextAreaElement>(null)
+
   const backdropRef = useRef<HTMLDivElement>(null)
   const threadRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
@@ -340,6 +326,67 @@ export default function VideoWatchView({
 
   async function handleDeleteNote(idx: number) {
     await persistNotes(notes.filter((_, i) => i !== idx))
+  }
+
+  async function toggleReplies(commentId: string) {
+    if (expandedReplies.has(commentId)) {
+      setExpandedReplies((prev) => { const next = new Set(prev); next.delete(commentId); return next })
+      return
+    }
+    setExpandedReplies((prev) => new Set(prev).add(commentId))
+    if (!repliesByComment.has(commentId)) {
+      setLoadingReplies((prev) => new Set(prev).add(commentId))
+      try {
+        const res = await fetch(`/api/comments?parentId=${commentId}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (Array.isArray(data)) setRepliesByComment((prev) => new Map(prev).set(commentId, data))
+        }
+      } finally {
+        setLoadingReplies((prev) => { const next = new Set(prev); next.delete(commentId); return next })
+      }
+    }
+  }
+
+  function startReply(commentId: string) {
+    setReplyingTo(commentId)
+    setReplyText('')
+    if (!expandedReplies.has(commentId)) toggleReplies(commentId)
+    setTimeout(() => replyInputRef.current?.focus(), 50)
+  }
+
+  async function postReply(parentId: string) {
+    if (!replyText.trim()) return
+    setPostingReply(true)
+    try {
+      const res = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId || undefined,
+          video_id: effectiveMediaId,
+          video_title: video.name,
+          author_name: userName,
+          comment_text: replyText.trim(),
+          parent_id: parentId,
+        }),
+      })
+      if (res.ok) {
+        const newReply = await res.json()
+        setRepliesByComment((prev) => {
+          const next = new Map(prev)
+          next.set(parentId, [...(next.get(parentId) ?? []), newReply])
+          return next
+        })
+        setComments((prev) => prev.map((c) =>
+          c.id === parentId ? { ...c, reply_count: (c.reply_count ?? 0) + 1 } : c
+        ))
+        setReplyText('')
+        setReplyingTo(null)
+      }
+    } finally {
+      setPostingReply(false)
+    }
   }
 
   async function postComment() {
@@ -691,35 +738,116 @@ export default function VideoWatchView({
                 {!loadingComments && sorted.length === 0 && (
                   <p className="text-xs text-gray-400 italic">No comments yet. Be the first!</p>
                 )}
-                {sorted.map((c) => (
-                  <div key={c.id} className="flex gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                        <div className={clsx('h-4 w-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0', avatarColor(c.author_name))}>
-                          {initials(c.author_name)}
+                {sorted.map((c) => {
+                  const replyCount = c.reply_count ?? 0
+                  const isRepliesOpen = expandedReplies.has(c.id)
+                  const replies = repliesByComment.get(c.id) ?? []
+                  const isLoadingRep = loadingReplies.has(c.id)
+
+                  return (
+                    <div key={c.id}>
+                      <div className="flex gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                            <div className={clsx('h-4 w-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold shrink-0', avatarColor(c.author_name))}>
+                              {initials(c.author_name)}
+                            </div>
+                            <span className="text-xs font-semibold text-gray-800">{c.author_name}</span>
+                            {c.timestamp_seconds != null && (
+                              <button
+                                onClick={() => seekTo(c.timestamp_seconds!)}
+                                title="Jump to this moment"
+                                className="flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-600 text-white text-[10px] font-mono font-bold rounded-full hover:bg-blue-700 active:scale-95 transition-all"
+                              >
+                                ▶ {formatTime(c.timestamp_seconds)}
+                              </button>
+                            )}
+                            <span className="text-[10px] text-gray-400">{timeAgo(c.created_at)}</span>
+                            {c.send_to_captain && (
+                              <span className="flex items-center gap-0.5 text-[10px] text-blue-600 bg-blue-50 px-1 py-0.5 rounded-full font-medium">
+                                <Shield className="h-2 w-2" />
+                                Review
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-700 leading-relaxed">{c.comment_text}</p>
+
+                          {/* Reply actions */}
+                          <div className="flex items-center gap-2 mt-1">
+                            <button
+                              onClick={() => startReply(c.id)}
+                              className="flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-blue-600 transition-colors"
+                            >
+                              <Reply className="h-3 w-3" />
+                              Reply
+                            </button>
+                            {replyCount > 0 && (
+                              <button
+                                onClick={() => toggleReplies(c.id)}
+                                className="flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
+                              >
+                                {isRepliesOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                                {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-xs font-semibold text-gray-800">{c.author_name}</span>
-                        {c.timestamp_seconds != null && (
-                          <button
-                            onClick={() => seekTo(c.timestamp_seconds!)}
-                            title="Jump to this moment"
-                            className="flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-600 text-white text-[10px] font-mono font-bold rounded-full hover:bg-blue-700 active:scale-95 transition-all"
-                          >
-                            ▶ {formatTime(c.timestamp_seconds)}
-                          </button>
-                        )}
-                        <span className="text-[10px] text-gray-400">{timeAgo(c.created_at)}</span>
-                        {c.send_to_captain && (
-                          <span className="flex items-center gap-0.5 text-[10px] text-blue-600 bg-blue-50 px-1 py-0.5 rounded-full font-medium">
-                            <Shield className="h-2 w-2" />
-                            Review
-                          </span>
-                        )}
                       </div>
-                      <p className="text-xs text-gray-700 leading-relaxed">{c.comment_text}</p>
+
+                      {/* Threaded replies */}
+                      {isRepliesOpen && (
+                        <div className="ml-6 pl-3 border-l-2 border-gray-200 mt-1 space-y-2">
+                          {isLoadingRep && <p className="text-[10px] text-gray-400">Loading...</p>}
+                          {replies.map((r) => (
+                            <div key={r.id} className="flex gap-1.5">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1 flex-wrap mb-0.5">
+                                  <div className={clsx('h-3.5 w-3.5 rounded-full flex items-center justify-center text-white text-[8px] font-bold shrink-0', avatarColor(r.author_name))}>
+                                    {initials(r.author_name)}
+                                  </div>
+                                  <span className="text-[11px] font-semibold text-gray-700">{r.author_name}</span>
+                                  <span className="text-[10px] text-gray-400">{timeAgo(r.created_at)}</span>
+                                </div>
+                                <p className="text-[11px] text-gray-600 leading-relaxed">{r.comment_text}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Inline reply composer */}
+                      {replyingTo === c.id && (
+                        <div className="ml-6 pl-3 border-l-2 border-blue-200 mt-2 space-y-1.5">
+                          <textarea
+                            ref={replyInputRef}
+                            value={replyText}
+                            onChange={(e) => setReplyText(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postReply(c.id) }}
+                            rows={2}
+                            placeholder="Write a reply..."
+                            className="w-full px-2 py-1 border border-gray-200 rounded-lg text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                          />
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => postReply(c.id)}
+                              disabled={postingReply || !replyText.trim()}
+                              className="flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-[10px] font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                            >
+                              <Send className="h-2.5 w-2.5" />
+                              {postingReply ? 'Posting...' : 'Reply'}
+                            </button>
+                            <button
+                              onClick={() => { setReplyingTo(null); setReplyText('') }}
+                              className="px-2 py-1 text-[10px] text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </>
           )}

@@ -17,14 +17,16 @@ export type Session = {
 
 export type Comment = {
   id: string
-  session_id: string
-  video_id: string
-  video_title: string
+  session_id: string | null
+  video_id: string | null
+  video_title: string | null
   author_name: string
   timestamp_seconds: number | null
   comment_text: string
   send_to_captain: boolean
   created_at: string
+  parent_id: string | null
+  reply_count?: number
 }
 
 export type User = {

@@ -1,11 +1,12 @@
 'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
-import { Anchor, Loader2, Heart, MessageCircle, Play, ChevronDown, ChevronRight, BookOpen, GraduationCap } from 'lucide-react'
+import { Anchor, Loader2, Heart, MessageCircle, Play, ChevronDown, ChevronRight, BookOpen, GraduationCap, MessageSquare } from 'lucide-react'
 import NamePrompt from '@/components/NamePrompt'
 import VideoWatchView from '@/components/VideoWatchView'
 import ReferenceManager from '@/components/ReferenceManager'
 import ArticleViewer from '@/components/ArticleViewer'
+import QATab from '@/components/QATab'
 import { thumbnailUrl, type SessionVideo, type Article } from '@/lib/types'
 import type { Comment } from '@/lib/supabase'
 import clsx from 'clsx'
@@ -22,7 +23,7 @@ interface BrowseSession {
 const NAME_KEY = 'telltale_name'
 const FAV_KEY = 'telltale_favorites'
 
-type MainView = 'sessions' | 'reference' | 'learn'
+type MainView = 'sessions' | 'reference' | 'learn' | 'qa'
 type Filter = 'all' | 'discussed' | 'favorites'
 
 function loadFavorites(): Set<string> {
@@ -144,13 +145,16 @@ export default function TeamFormPage() {
 
   const commentCountByVideo = useMemo(() => {
     const map = new Map<string, number>()
-    for (const c of comments) map.set(c.video_id, (map.get(c.video_id) ?? 0) + 1)
+    for (const c of comments) {
+      if (c.video_id) map.set(c.video_id, (map.get(c.video_id) ?? 0) + 1)
+    }
     return map
   }, [comments])
 
   const latestCommentByVideo = useMemo(() => {
     const map = new Map<string, number>()
     for (const c of comments) {
+      if (!c.video_id) continue
       const t = new Date(c.created_at).getTime()
       if (!map.has(c.video_id) || t > map.get(c.video_id)!) map.set(c.video_id, t)
     }
@@ -263,6 +267,7 @@ export default function TeamFormPage() {
             { key: 'sessions' as MainView, label: 'Sessions', icon: null },
             { key: 'reference' as MainView, label: 'Reference', icon: <BookOpen className="h-3.5 w-3.5" /> },
             { key: 'learn' as MainView, label: 'Learn', icon: <GraduationCap className="h-3.5 w-3.5" /> },
+            { key: 'qa' as MainView, label: 'Q&A', icon: <MessageSquare className="h-3.5 w-3.5" /> },
           ]).map((tab) => (
             <button
               key={tab.key}
@@ -347,6 +352,11 @@ export default function TeamFormPage() {
               </div>
             </div>
           )
+        )}
+
+        {/* ── Q&A ── */}
+        {mainView === 'qa' && userName && (
+          <QATab userName={userName} />
         )}
 
         {mainView === 'sessions' && loading && (
