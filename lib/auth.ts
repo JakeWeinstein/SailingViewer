@@ -1,14 +1,16 @@
+import 'server-only'
+
 import { SignJWT, jwtVerify } from 'jose'
 import type { NextRequest } from 'next/server'
+import { TokenPayloadSchema } from '@/lib/schemas/auth'
 
-const COOKIE_NAME = 'tf_captain_session'
+export type { TokenPayload } from '@/lib/schemas/auth'
+export { TokenPayloadSchema } from '@/lib/schemas/auth'
+
+import type { TokenPayload } from '@/lib/schemas/auth'
+
+export const COOKIE_NAME = 'tf_session'
 const EXPIRY = '7d'
-
-export type TokenPayload = {
-  role: 'captain' | 'contributor'
-  userId?: string
-  userName?: string
-}
 
 function getSecret(): Uint8Array {
   const secret = process.env.AUTH_SECRET
@@ -27,12 +29,9 @@ export async function signToken(payload: TokenPayload): Promise<string> {
 export async function verifyToken(token: string): Promise<TokenPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getSecret())
-    const role = (payload.role as string) ?? 'captain'
-    return {
-      role: role === 'contributor' ? 'contributor' : 'captain',
-      userId: payload.userId as string | undefined,
-      userName: payload.userName as string | undefined,
-    }
+    const parsed = TokenPayloadSchema.safeParse(payload)
+    if (!parsed.success) return null
+    return parsed.data
   } catch {
     return null
   }
@@ -43,5 +42,3 @@ export async function getTokenPayload(req: NextRequest): Promise<TokenPayload | 
   if (!token) return null
   return verifyToken(token)
 }
-
-export { COOKIE_NAME }
