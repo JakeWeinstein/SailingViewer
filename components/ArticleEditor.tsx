@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import {
   Plus, Trash2, ArrowUp, ArrowDown, Save,
-  Eye, EyeOff, FileText, Film, Loader2, Clock, HardDrive, Youtube, X
+  Eye, EyeOff, FileText, Film, Loader2, Clock, Youtube, X
 } from 'lucide-react'
 import type { Article, ArticleBlock, ReferenceVideo, ReferenceFolder } from '@/lib/types'
 import type { SessionVideo } from '@/lib/types'
-import { youtubeThumbnailUrl, thumbnailUrl } from '@/lib/types'
+import { youtubeThumbnailUrl } from '@/lib/types'
 import clsx from 'clsx'
 
 interface BrowseSession { id: string; label: string; videos: SessionVideo[] }
@@ -117,7 +117,7 @@ export default function ArticleEditor({ article, userName, folders = [], onSaved
   function pickPracticeVideo(i: number, v: SessionVideo) {
     updateBlock(i, {
       type: 'video',
-      videoType: 'drive',
+      videoType: 'youtube',
       videoRef: v.id,
       title: v.name,
       referenceVideoId: undefined,
@@ -194,7 +194,7 @@ export default function ArticleEditor({ article, userName, folders = [], onSaved
             {block.videoType && block.videoRef && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={block.videoType === 'youtube' ? youtubeThumbnailUrl(block.videoRef) : thumbnailUrl(block.videoRef)}
+                src={youtubeThumbnailUrl(block.videoRef)}
                 alt={block.title ?? ''}
                 className="h-14 w-24 object-cover rounded-lg shrink-0 bg-gray-100"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
@@ -202,9 +202,7 @@ export default function ArticleEditor({ article, userName, folders = [], onSaved
             )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 mb-0.5">
-                {block.videoType === 'youtube'
-                  ? <Youtube className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                  : <HardDrive className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
+                <Youtube className="h-3.5 w-3.5 text-red-500 shrink-0" />
                 <p className="text-sm font-medium text-gray-800 truncate">{block.title ?? 'Video'}</p>
               </div>
               <button
@@ -246,19 +244,19 @@ export default function ArticleEditor({ article, userName, folders = [], onSaved
                 {videoPickerTab === 'reference' && filteredRef.map((v) => (
                   <button key={v.id} onClick={() => pickRefVideo(i, v)} className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-50 text-left">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={v.type === 'youtube' ? youtubeThumbnailUrl(v.video_ref) : thumbnailUrl(v.video_ref)} alt={v.title}
+                    <img src={youtubeThumbnailUrl(v.video_ref)} alt={v.title}
                       className="h-10 w-16 object-cover rounded shrink-0 bg-gray-100"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                     <div className="min-w-0">
                       <p className="text-sm text-gray-700 truncate">{v.title}</p>
-                      <p className="text-xs text-gray-400">{v.type === 'youtube' ? 'YouTube' : 'Drive'}</p>
+                      <p className="text-xs text-gray-400">YouTube</p>
                     </div>
                   </button>
                 ))}
                 {videoPickerTab === 'practice' && filteredPractice.map(({ video, sessionLabel }) => (
                   <button key={video.id} onClick={() => pickPracticeVideo(i, video)} className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-50 text-left">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={thumbnailUrl(video.id)} alt={video.name}
+                    <img src={youtubeThumbnailUrl(video.id)} alt={video.name}
                       className="h-10 w-16 object-cover rounded shrink-0 bg-gray-100"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                     <div className="min-w-0">

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Play, BookOpen, Youtube, HardDrive, X, FolderOpen, ChevronDown, Film, Scissors, Layers } from 'lucide-react'
+import { Plus, Trash2, Play, BookOpen, Youtube, X, FolderOpen, ChevronDown, Film, Scissors, Layers } from 'lucide-react'
 import VideoWatchView from './VideoWatchView'
 import FolderManager from './FolderManager'
 import ChapterEditor from './ChapterEditor'
@@ -11,13 +11,11 @@ import {
   type SessionVideo,
   formatTime,
   youtubeThumbnailUrl,
-  thumbnailUrl,
   extractYouTubeInfo,
-  extractDriveFileId,
 } from '@/lib/types'
 import clsx from 'clsx'
 
-type AddType = 'youtube' | 'drive' | 'practice'
+type AddType = 'youtube' | 'practice'
 
 interface BrowseSession {
   id: string
@@ -97,28 +95,19 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
 
     let video_ref = ''
     let note_timestamp: number | undefined
-    let type: 'drive' | 'youtube' = 'drive'
+    const type: 'youtube' = 'youtube'
     let title = addTitle.trim()
 
     if (addType === 'practice') {
       if (!selectedPractice) { setAddError('Select a video from the practice library.'); return }
       video_ref = selectedPractice.id
-      type = 'drive'
       title = title || selectedPractice.name
     } else {
       if (!title || !addUrl.trim()) { setAddError('Title and URL are required.'); return }
-      if (addType === 'youtube') {
-        const info = extractYouTubeInfo(addUrl)
-        if (!info) { setAddError('Could not find a YouTube video ID in that URL.'); return }
-        video_ref = info.id
-        note_timestamp = info.startSeconds
-        type = 'youtube'
-      } else {
-        const id = extractDriveFileId(addUrl)
-        if (!id) { setAddError('Could not find a Drive file ID in that URL.'); return }
-        video_ref = id
-        type = 'drive'
-      }
+      const info = extractYouTubeInfo(addUrl)
+      if (!info) { setAddError('Could not find a YouTube video ID in that URL.'); return }
+      video_ref = info.id
+      note_timestamp = info.startSeconds
     }
 
     if (!title) { setAddError('Title is required.'); return }
@@ -262,9 +251,7 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
   }
 
   function VideoCard({ video }: { video: ReferenceVideo }) {
-    const thumb = video.type === 'youtube'
-      ? youtubeThumbnailUrl(video.video_ref)
-      : thumbnailUrl(video.video_ref)
+    const thumb = youtubeThumbnailUrl(video.video_ref)
     const isChapter = !!video.parent_video_id
     const chapterCount = !isChapter ? getChapterCount(video.id) : 0
     return (
@@ -295,12 +282,9 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
                 <Play className="h-5 w-5 text-blue-600 fill-blue-600" />
               </div>
             </div>
-            <div className={clsx(
-              'absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium',
-              video.type === 'youtube' ? 'bg-red-600 text-white' : 'bg-blue-600 text-white'
-            )}>
-              {video.type === 'youtube' ? <Youtube className="h-2.5 w-2.5" /> : <HardDrive className="h-2.5 w-2.5" />}
-              {video.type === 'youtube' ? 'YouTube' : 'Drive'}
+            <div className="absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-600 text-white">
+              <Youtube className="h-2.5 w-2.5" />
+              YouTube
             </div>
             {/* Timestamp badge for chapters */}
             {video.start_seconds != null && video.start_seconds > 0 && (
@@ -499,7 +483,6 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
           <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit flex-wrap">
             {([
               { key: 'youtube' as AddType, label: 'YouTube', icon: <Youtube className="h-3.5 w-3.5" /> },
-              { key: 'drive' as AddType, label: 'Google Drive', icon: <HardDrive className="h-3.5 w-3.5" /> },
               { key: 'practice' as AddType, label: 'From practice', icon: <Film className="h-3.5 w-3.5" /> },
             ]).map((t) => (
               <button
@@ -519,16 +502,13 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
           {addType !== 'practice' && (
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-gray-600">
-                {addType === 'youtube'
-                  ? 'YouTube URL — timestamps like ?t=42 are captured automatically'
-                  : 'Google Drive share URL or file ID'
-                }
+                YouTube URL — timestamps like ?t=42 are captured automatically
               </label>
               <input
                 type="text"
                 value={addUrl}
                 onChange={(e) => { setAddUrl(e.target.value); setAddError('') }}
-                placeholder={addType === 'youtube' ? 'https://youtu.be/...' : 'https://drive.google.com/file/d/...'}
+                placeholder="https://youtu.be/..."
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {addType === 'youtube' && ytInfo && (
@@ -553,7 +533,7 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
               {practiceLoading && <p className="text-xs text-gray-400">Loading…</p>}
               {selectedPractice && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-800">
-                  <HardDrive className="h-3.5 w-3.5 shrink-0" />
+                  <Film className="h-3.5 w-3.5 shrink-0" />
                   <span className="flex-1 truncate font-medium">{selectedPractice.name}</span>
                   <button onClick={() => setSelectedPractice(null)}>
                     <X className="h-3.5 w-3.5" />

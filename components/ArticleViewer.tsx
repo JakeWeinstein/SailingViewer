@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { embedUrl, youtubeEmbedUrl, type ReferenceVideo } from '@/lib/types'
+import { youtubeEmbedUrl, type ReferenceVideo } from '@/lib/types'
 import type { Article, ArticleBlock } from '@/lib/types'
 
 interface Props {
@@ -12,9 +12,7 @@ interface Props {
 function VideoBlock({ block }: { block: ArticleBlock & { type: 'video' } }) {
   // Self-contained block — render directly without any fetch
   if (block.videoRef && block.videoType) {
-    const src = block.videoType === 'youtube'
-      ? youtubeEmbedUrl(block.videoRef, block.startSeconds)
-      : embedUrl(block.videoRef) + (block.startSeconds ? `#t=${block.startSeconds}` : '')
+    const src = youtubeEmbedUrl(block.videoRef, block.startSeconds)
 
     return (
       <div className="my-4">
@@ -70,9 +68,7 @@ function LegacyVideoBlock({ block }: { block: ArticleBlock & { type: 'video' } }
     </div>
   )
 
-  const src = video.type === 'youtube'
-    ? youtubeEmbedUrl(video.video_ref, block.startSeconds ?? video.note_timestamp)
-    : embedUrl(video.video_ref) + (block.startSeconds ? `#t=${block.startSeconds}` : '')
+  const src = youtubeEmbedUrl(video.video_ref, block.startSeconds ?? video.note_timestamp)
 
   return (
     <div className="my-4">
