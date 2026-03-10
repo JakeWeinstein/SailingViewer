@@ -7,8 +7,8 @@
 
 ### Video & Playback
 
-- [ ] **VID-01**: User can watch Google Drive embedded videos with reliable playback on mobile and desktop
-- [ ] **VID-02**: User can watch YouTube embedded videos with reliable playback on mobile and desktop
+- [x] **VID-01**: User can watch Google Drive embedded videos with reliable playback on mobile and desktop
+- [x] **VID-02**: User can watch YouTube embedded videos with reliable playback on mobile and desktop
 - [ ] **VID-03**: User can navigate chapters (timestamp markers) on reference videos to jump to specific moments
 - [ ] **VID-04**: Multi-part YouTube videos transition seamlessly between parts within a chapter sequence
 - [ ] **VID-05**: Video player displays properly on mobile (sizing, fullscreen, controls)
@@ -108,8 +108,8 @@
 | AUTH-03 | Phase 1 | Complete |
 | AUTH-04 | Phase 1 | Complete |
 | AUTH-06 | Phase 1 | Complete |
-| VID-01 | Phase 2 | Pending |
-| VID-02 | Phase 2 | Pending |
+| VID-01 | Phase 2 | Complete |
+| VID-02 | Phase 2 | Complete |
 | VID-03 | Phase 2 | Pending |
 | VID-04 | Phase 2 | Pending |
 | VID-05 | Phase 2 | Pending |

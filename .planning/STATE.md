@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 2 context gathered
-last_updated: "2026-03-10T21:20:06.910Z"
-last_activity: 2026-03-10 — Phase 1 Foundation human-verified and complete
+status: executing
+stopped_at: Completed 02-video-playback plan 02-01
+last_updated: "2026-03-10T21:32:00.000Z"
+last_activity: 2026-03-10 — Phase 2 Plan 01 complete (YouTube-only foundation)
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  total_plans: 6
+  completed_plans: 4
+  percent: 67
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-10)
 
 **Core value:** Videos play reliably on every device — Drive embeds load, chapters seek correctly, multi-part YouTube videos transition seamlessly
-**Current focus:** Phase 2: Video Playback (Phase 1 complete)
+**Current focus:** Phase 2: Video Playback — Plan 02 (YouTube OAuth import)
 
 ## Current Position
 
-Phase: 1 of 5 (Foundation) — COMPLETE
-Plan: 3 of 3 complete
-Status: Phase 1 done, ready to begin Phase 2 planning
-Last activity: 2026-03-10 — Phase 1 Foundation human-verified and complete
+Phase: 2 of 5 (Video Playback) — IN PROGRESS
+Plan: 1 of 3 complete in Phase 2
+Status: Phase 2 Plan 01 done — YouTube-only DB migration, types, API libraries
+Last activity: 2026-03-10 — 02-01 YouTube-only foundation complete
 
-Progress: [██████████] 100% (of Phase 1)
+Progress: [████████░░] 67% (plans: 4 of ~6 estimated)
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [██████████] 100% (of Phase 1)
 | Phase 01-foundation P01 | 4 | 2 tasks | 10 files |
 | Phase 01-foundation P02 | 14 | 2 tasks | 21 files |
 | Phase 01-foundation P03 | 4 | 2 tasks | 9 files |
+| Phase 02-video-playback P01 | 12 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,9 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: Register assigns viewer role; COOKIE_NAME renamed tf_captain_session->tf_session for multi-role usage
 - [Phase 01-foundation]: Seed captain (is_seed=true) is the immutable captain anchor — protected from demotion and deletion server-side
 - [Phase 01-foundation]: Invite code rotation uses crypto.randomUUID() — no external uuid package
+- [Phase 02-01]: Retained deprecated Drive helpers (thumbnailUrl, embedUrl, extractDriveFileId) with @deprecated JSDoc — components still import them; deletion deferred to Plan 03
+- [Phase 02-01]: youtube-api.ts omits Window.YT redeclaration to avoid conflict with VideoWatchView.tsx precise YT type
+- [Phase 02-01]: YouTubeTokens type explicitly exported from youtube-oauth.ts for type safety
 
 ### Pending Todos
 
@@ -83,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T21:20:06.903Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-video-playback/02-CONTEXT.md
+Last session: 2026-03-10T21:32:00.000Z
+Stopped at: Completed 02-video-playback plan 02-01
+Resume file: .planning/phases/02-video-playback/02-01-SUMMARY.md
