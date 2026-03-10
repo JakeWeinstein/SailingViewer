@@ -11,13 +11,15 @@ import VideoWatchView from './VideoWatchView'
 import ReferenceManager from './ReferenceManager'
 import VideoUploader from './VideoUploader'
 import ArticleEditor from './ArticleEditor'
+import TeamManager from './TeamManager'
+import ProfileEditor from './ProfileEditor'
 import type { Session, Comment } from '@/lib/types'
 import type { SessionVideo, VideoNote, Article, ReferenceFolder } from '@/lib/types'
 import { thumbnailUrl } from '@/lib/types'
 import clsx from 'clsx'
 import Link from 'next/link'
 
-type SidebarView = 'session' | 'reference' | 'upload' | 'articles'
+type SidebarView = 'session' | 'reference' | 'upload' | 'articles' | 'team' | 'profile'
 type MainTab = 'review' | 'videos'
 
 function formatTime(s: number) {
@@ -41,9 +43,10 @@ interface Props {
   initialSessions: Session[]
   userRole: 'captain' | 'contributor' | 'viewer'
   userName: string
+  userId: string
 }
 
-export default function DashboardView({ initialSessions, userRole, userName }: Props) {
+export default function DashboardView({ initialSessions, userRole, userName, userId }: Props) {
   const isCaptain = userRole === 'captain'
   const [sessions, setSessions] = useState<Session[]>(initialSessions)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
@@ -241,7 +244,7 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
           <button
             onClick={() => setSidebarView('articles')}
             className={clsx(
-              'w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2 mb-2',
+              'w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2',
               sidebarView === 'articles'
                 ? 'bg-blue-50 text-blue-700 font-medium border-r-2 border-blue-600'
                 : 'text-gray-600 hover:bg-gray-50'
@@ -249,6 +252,36 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
           >
             <FileText className="h-4 w-4 shrink-0" />
             Articles
+          </button>
+
+          {/* Team — captain only */}
+          {isCaptain && (
+            <button
+              onClick={() => setSidebarView('team')}
+              className={clsx(
+                'w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2',
+                sidebarView === 'team'
+                  ? 'bg-blue-50 text-blue-700 font-medium border-r-2 border-blue-600'
+                  : 'text-gray-600 hover:bg-gray-50'
+              )}
+            >
+              <Users className="h-4 w-4 shrink-0" />
+              Team
+            </button>
+          )}
+
+          {/* Profile — all roles */}
+          <button
+            onClick={() => setSidebarView('profile')}
+            className={clsx(
+              'w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2 mb-2',
+              sidebarView === 'profile'
+                ? 'bg-blue-50 text-blue-700 font-medium border-r-2 border-blue-600'
+                : 'text-gray-600 hover:bg-gray-50'
+            )}
+          >
+            <Shield className="h-4 w-4 shrink-0" />
+            Profile
           </button>
 
           <p className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Sessions</p>
@@ -386,6 +419,27 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
                 })()}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Team view — captain only */}
+        {sidebarView === 'team' && isCaptain && (
+          <div className="max-w-5xl mx-auto px-6 py-6">
+            <TeamManager />
+          </div>
+        )}
+
+        {/* Profile view — all roles */}
+        {sidebarView === 'profile' && (
+          <div className="max-w-xl mx-auto px-6 py-6">
+            <ProfileEditor
+              user={{
+                id: userId,
+                username: userName,
+                displayName: userName,
+                role: userRole,
+              }}
+            />
           </div>
         )}
 

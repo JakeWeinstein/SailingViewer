@@ -28,6 +28,7 @@ export default async function DashboardPage() {
       initialSessions={sessions ?? []}
       userRole={payload.role}
       userName={payload.userName}
+      userId={payload.userId}
     />
   )
 }
