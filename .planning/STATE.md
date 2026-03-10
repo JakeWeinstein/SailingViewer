@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 02-video-playback-02-02-PLAN.md
-last_updated: "2026-03-10T22:47:29.651Z"
+stopped_at: Completed 02-video-playback-02-03-PLAN.md
+last_updated: "2026-03-10T23:31:16.077Z"
 last_activity: 2026-03-10 — 02-01 YouTube-only foundation complete
 progress:
   total_phases: 5
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
   percent: 67
 ---
 
@@ -57,6 +57,7 @@ Progress: [████████░░] 67% (plans: 4 of ~6 estimated)
 | Phase 02-video-playback P00 | 5 | 2 tasks | 10 files |
 | Phase 02-video-playback P02 | 3 | 2 tasks | 6 files |
 | Phase 02-video-playback P02 | 3 | 3 tasks | 6 files |
+| Phase 02-video-playback P03 | checkpoint-verified | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,9 @@ Recent decisions affecting current work:
 - [Phase 02-video-playback]: 15-minute import cooldown enforced server-side via app_config timestamp (quota protection)
 - [Phase 02-video-playback]: Deduplication via SELECT + Set before INSERT — avoids duplicate session_videos without DB unique constraint
 - [Phase 02-video-playback]: Sessions created as is_active=false by default — captain activates manually to control team visibility
+- [Phase 02-video-playback]: YouTubeLoader null-rendering client component used for global IFrame API initialization — keeps onYouTubeIframeAPIReady callback queue in youtube-api.ts as single source of truth
+- [Phase 02-video-playback]: playsinline: 1 always (not mobile-conditioned) — avoids iOS fullscreen hijack while allowing Android inline; matches Research Pitfall 3
+- [Phase 02-video-playback]: Timestamp auto-capture guarded by getPlayerState() PLAYING(1)/PAUSED(2) — prevents capturing 0 on load or garbage on ENDED/BUFFERING
 
 ### Pending Todos
 
@@ -100,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T22:47:29.641Z
-Stopped at: Completed 02-video-playback-02-02-PLAN.md
+Last session: 2026-03-10T23:31:16.076Z
+Stopped at: Completed 02-video-playback-02-03-PLAN.md
 Resume file: None
