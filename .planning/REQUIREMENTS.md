@@ -60,10 +60,10 @@
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: Normalized database schema (no JSONB blobs for video storage)
-- [ ] **INFRA-02**: Supabase client isolated to server-side only (service role key not exposed)
+- [x] **INFRA-01**: Normalized database schema (no JSONB blobs for video storage)
+- [x] **INFRA-02**: Supabase client isolated to server-side only (service role key not exposed)
 - [ ] **INFRA-03**: Zod validation at every API boundary
-- [ ] **INFRA-04**: Data migration from existing schema preserving current content
+- [x] **INFRA-04**: Data migration from existing schema preserving current content
 
 ## v2 Requirements
 
@@ -99,10 +99,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 1 | Pending |
-| INFRA-02 | Phase 1 | Pending |
+| INFRA-01 | Phase 1 | Complete |
+| INFRA-02 | Phase 1 | Complete |
 | INFRA-03 | Phase 1 | Pending |
-| INFRA-04 | Phase 1 | Pending |
+| INFRA-04 | Phase 1 | Complete |
 | AUTH-01 | Phase 1 | Pending |
 | AUTH-02 | Phase 1 | Pending |
 | AUTH-03 | Phase 1 | Pending |
