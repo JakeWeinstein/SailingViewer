@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers, Reply } from 'lucide-react'
-import { embedUrl, youtubeEmbedUrl, parseTimestamp, formatTime, type SessionVideo, type VideoNote, type ReferenceVideo } from '@/lib/types'
+import { parseTimestamp, formatTime, youtubeThumbnailUrl, type SessionVideo, type VideoNote, type ReferenceVideo } from '@/lib/types'
 import { timeAgo, initials, avatarColor } from '@/lib/comment-utils'
+import { onYouTubeReady } from '@/lib/youtube-api'
 import type { Comment } from '@/lib/types'
 import clsx from 'clsx'
 
@@ -34,9 +35,10 @@ declare global {
 
 interface YTPlayer {
   getCurrentTime: () => number
-  seekTo: (seconds: number, allowSeekAhead: boolean) => void
-  destroy: () => void
   getPlayerState: () => number
+  seekTo: (seconds: number, allowSeekAhead: boolean) => void
+  loadVideoById: (videoId: string, startSeconds?: number) => void
+  destroy: () => void
 }
 
 interface VideoWatchViewProps {
@@ -51,7 +53,7 @@ interface VideoWatchViewProps {
   onNotesUpdated?: (videoId: string, notes: VideoNote[]) => void
   // Reference video / YouTube support
   mediaId?: string
-  videoType?: 'drive' | 'youtube'
+  videoType?: 'youtube'
   noteApiPath?: string
   startSeconds?: number  // Chapter start time — seek on initial load
   // Chapter navigation
@@ -64,204 +66,126 @@ interface VideoWatchViewProps {
 export default function VideoWatchView({
   video, sessionId, activeSessionId, userName, isCaptain = false,
   isFavorited = false, onFavoriteToggle, onClose, onNotesUpdated, onNoteUpdated,
-  mediaId, videoType = 'drive', noteApiPath, startSeconds,
+  mediaId, videoType = 'youtube', noteApiPath, startSeconds,
   siblingChapters, onChapterChange,
 }: VideoWatchViewProps) {
-  const effectiveMediaId = mediaId ?? video.id
+  const effectiveVideoId = mediaId ?? video.id
 
-  // Multi-video chapters: each chapter is a separate video (different video_ref values)
+  // Whether we are in multi-part mode (chapters have different video_refs)
   const isMultiVideo = siblingChapters
     ? new Set(siblingChapters.map((s) => s.video_ref)).size > 1
     : false
 
-  // Use YouTube Player API only for same-video chapters (timestamp seeking within one video)
-  const useYTPlayer = videoType === 'youtube' && !!siblingChapters && siblingChapters.length > 1 && !isMultiVideo
-
-  const [comments, setComments] = useState<Comment[]>([])
-  const [loadingComments, setLoadingComments] = useState(true)
-  const [iframeSrc, setIframeSrc] = useState(() => {
-    if (useYTPlayer) return '' // Player API handles the embed
-    if (videoType === 'youtube') {
-      // Enable JS API for multi-video chapters so we can detect video end
-      const jsApi = isMultiVideo ? '&enablejsapi=1' : ''
-      return startSeconds
-        ? `https://www.youtube.com/embed/${effectiveMediaId}?start=${startSeconds}${jsApi}`
-        : `${youtubeEmbedUrl(effectiveMediaId)}${jsApi ? '?enablejsapi=1' : ''}`
-    }
-    return startSeconds
-      ? `${embedUrl(effectiveMediaId)}#t=${startSeconds}`
-      : embedUrl(effectiveMediaId)
-  })
+  // Detect mobile on initial render
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 640
 
   // ── YouTube Player API state ──
   const ytPlayerRef = useRef<YTPlayer | null>(null)
-  const ytContainerIdRef = useRef(`yt-player-${effectiveMediaId}`)
-  const iframeRef = useRef<HTMLIFrameElement | null>(null)
-  const [activeChapterId, setActiveChapterId] = useState(video.id)
-  const activeChapterIdRef = useRef(video.id)
+  const containerIdRef = useRef(`yt-player-${effectiveVideoId}-${Math.random().toString(36).slice(2, 7)}`)
   const startSecondsRef = useRef(startSeconds)
-  const onChapterChangeRef = useRef(onChapterChange)
   const siblingChaptersRef = useRef(siblingChapters)
+  const onChapterChangeRef = useRef(onChapterChange)
+
+  // Track active chapter index for auto-advance and UI highlighting
+  const [activeChapterIndex, setActiveChapterIndex] = useState<number>(() => {
+    if (!siblingChapters) return 0
+    const idx = siblingChapters.findIndex((ch) => ch.video_ref === effectiveVideoId)
+    return idx >= 0 ? idx : 0
+  })
+  const activeChapterIndexRef = useRef(activeChapterIndex)
 
   // Keep refs in sync
   useEffect(() => { onChapterChangeRef.current = onChapterChange }, [onChapterChange])
   useEffect(() => { siblingChaptersRef.current = siblingChapters }, [siblingChapters])
+  useEffect(() => { startSecondsRef.current = startSeconds }, [startSeconds])
+  useEffect(() => { activeChapterIndexRef.current = activeChapterIndex }, [activeChapterIndex])
 
-  // ── Load YouTube IFrame API script ──
+  // ── Initialize YT.Player ──
   useEffect(() => {
-    if (!useYTPlayer) return
+    const containerId = containerIdRef.current
 
-    // If the API is already loaded, create the player immediately
-    if (window.YT && window.YT.Player) {
-      createPlayer()
-      return
-    }
+    // Guard: make sure container div is mounted before player creation
+    let playerCreated = false
 
-    // Check if script tag already exists (from a previous mount)
-    const existingScript = document.querySelector('script[src="https://www.youtube.com/iframe_api"]')
-    if (existingScript) {
-      // Script is loading but not yet ready — wait for the callback
-      const prevCallback = window.onYouTubeIframeAPIReady
-      window.onYouTubeIframeAPIReady = () => {
-        prevCallback?.()
-        createPlayer()
-      }
-      return
-    }
-
-    // Load the script
-    const script = document.createElement('script')
-    script.src = 'https://www.youtube.com/iframe_api'
-    script.async = true
-    window.onYouTubeIframeAPIReady = () => {
-      createPlayer()
-    }
-    document.head.appendChild(script)
-
-    function createPlayer() {
-      // Guard: container div must exist, player not already created
-      if (ytPlayerRef.current) return
-      const container = document.getElementById(ytContainerIdRef.current)
+    onYouTubeReady(() => {
+      if (playerCreated) return
+      const container = document.getElementById(containerId)
       if (!container) return
+      if (ytPlayerRef.current) return
 
-      ytPlayerRef.current = new window.YT.Player(ytContainerIdRef.current, {
-        videoId: effectiveMediaId,
+      playerCreated = true
+      ytPlayerRef.current = new window.YT.Player(containerId, {
+        videoId: effectiveVideoId,
         playerVars: {
-          autoplay: 0,
-          start: startSecondsRef.current ?? 0,
+          playsinline: isMobile ? 0 : 1,
           rel: 0,
-          modestbranding: 1,
+          fs: 1,
+          start: startSecondsRef.current ?? 0,
         },
         events: {
           onReady: (event) => {
-            if (startSecondsRef.current != null && startSecondsRef.current > 0) {
+            if (startSecondsRef.current && startSecondsRef.current > 0) {
               event.target.seekTo(startSecondsRef.current, true)
+            }
+          },
+          onStateChange: (event) => {
+            // Auto-advance when video ends
+            if (event.data === window.YT.PlayerState.ENDED) {
+              const chapters = siblingChaptersRef.current
+              if (!chapters || chapters.length <= 1) return
+              const currentIdx = activeChapterIndexRef.current
+              const nextIdx = currentIdx + 1
+              if (nextIdx >= chapters.length) return
+              const nextChapter = chapters[nextIdx]
+              activeChapterIndexRef.current = nextIdx
+              setActiveChapterIndex(nextIdx)
+              if (nextChapter.video_ref !== chapters[currentIdx].video_ref) {
+                // Different video — load new video ID
+                ytPlayerRef.current?.loadVideoById(nextChapter.video_ref, nextChapter.start_seconds ?? 0)
+              } else {
+                // Same video — just seek
+                ytPlayerRef.current?.seekTo(nextChapter.start_seconds ?? 0, true)
+              }
+              onChapterChangeRef.current?.(nextChapter)
             }
           },
         },
       })
-    }
+    })
 
     return () => {
-      // Cleanup: destroy the player on unmount
       if (ytPlayerRef.current) {
         try { ytPlayerRef.current.destroy() } catch { /* ignore */ }
         ytPlayerRef.current = null
       }
     }
-    // Only re-run if we switch between YT player and non-YT player mode, or if the media changes
+    // Only re-run when the video ID changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useYTPlayer, effectiveMediaId])
+  }, [effectiveVideoId])
 
-  // ── Poll getCurrentTime for active chapter auto-tracking ──
-  useEffect(() => {
-    if (!useYTPlayer || !siblingChapters || siblingChapters.length <= 1) return
-
-    const interval = setInterval(() => {
-      const player = ytPlayerRef.current
-      if (!player || typeof player.getCurrentTime !== 'function') return
-
-      try {
-        const currentTime = player.getCurrentTime()
-        const chapters = siblingChaptersRef.current
-        if (!chapters) return
-
-        // Find the active chapter: the last chapter whose start_seconds <= currentTime
-        let activeChapter = chapters[0]
-        for (let i = chapters.length - 1; i >= 0; i--) {
-          if ((chapters[i].start_seconds ?? 0) <= currentTime) {
-            activeChapter = chapters[i]
-            break
-          }
-        }
-
-        if (activeChapter && activeChapter.id !== activeChapterIdRef.current) {
-          activeChapterIdRef.current = activeChapter.id
-          setActiveChapterId(activeChapter.id)
-          onChapterChangeRef.current?.(activeChapter)
-        }
-      } catch {
-        // Player may not be ready yet — ignore
+  // ── Chapter click: seek or load new video ──
+  const handleChapterClick = useCallback((chapter: ReferenceVideo, idx: number) => {
+    if (activeChapterIndexRef.current === idx) return
+    activeChapterIndexRef.current = idx
+    setActiveChapterIndex(idx)
+    if (ytPlayerRef.current) {
+      if (chapter.video_ref !== effectiveVideoId) {
+        ytPlayerRef.current.loadVideoById(chapter.video_ref, chapter.start_seconds ?? 0)
+      } else {
+        ytPlayerRef.current.seekTo(chapter.start_seconds ?? 0, true)
       }
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [useYTPlayer, siblingChapters])
-
-  // ── Multi-video: listen for YouTube iframe end event to auto-advance ──
-  useEffect(() => {
-    if (!isMultiVideo || videoType !== 'youtube' || !siblingChapters || siblingChapters.length <= 1) return
-
-    const iframe = iframeRef.current
-    // Tell the YouTube iframe to send us state change events
-    const subscribeCmd = JSON.stringify({ event: 'command', func: 'addEventListener', args: ['onStateChange'] })
-    const sendSubscribe = () => {
-      try { iframe?.contentWindow?.postMessage(subscribeCmd, 'https://www.youtube.com') } catch { /* ignore */ }
     }
-    // Retry subscription until iframe is ready
-    const listenInterval = setInterval(sendSubscribe, 500)
-    setTimeout(() => clearInterval(listenInterval), 10000)
+    onChapterChangeRef.current?.(chapter)
+  }, [effectiveVideoId])
 
-    function handleMessage(e: MessageEvent) {
-      if (e.origin !== 'https://www.youtube.com') return
-      try {
-        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
-        // YouTube sends { event: "onStateChange", info: 0 } when video ends (0 = ENDED)
-        if (data?.event === 'onStateChange' && data?.info === 0) {
-          const chapters = siblingChaptersRef.current
-          if (!chapters) return
-          const currentIdx = chapters.findIndex((ch) => ch.id === video.id)
-          const nextChapter = chapters[currentIdx + 1]
-          if (nextChapter) {
-            onChapterChangeRef.current?.(nextChapter)
-          }
-        }
-      } catch { /* ignore non-JSON messages */ }
+  // ── Seek helper (for comment timestamps and captain notes) ──
+  function seekTo(seconds: number) {
+    if (ytPlayerRef.current) {
+      ytPlayerRef.current.seekTo(seconds, true)
     }
+  }
 
-    window.addEventListener('message', handleMessage)
-    return () => {
-      clearInterval(listenInterval)
-      window.removeEventListener('message', handleMessage)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMultiVideo, videoType, video.id])
-
-  // ── Handle chapter click: seek instead of re-mount ──
-  const handleChapterClick = useCallback((chapter: ReferenceVideo) => {
-    if (useYTPlayer && ytPlayerRef.current) {
-      const seekTarget = chapter.start_seconds ?? 0
-      ytPlayerRef.current.seekTo(seekTarget, true)
-      activeChapterIdRef.current = chapter.id
-      setActiveChapterId(chapter.id)
-      onChapterChangeRef.current?.(chapter)
-    } else {
-      // Fallback for non-YT: use the original onChapterChange to swap the view
-      onChapterChange?.(chapter)
-    }
-  }, [useYTPlayer, onChapterChange])
-
-  // Resolve notes — support both new array format and legacy single note
+  // ── Notes ──
   function resolveNotes(v: SessionVideo): VideoNote[] {
     if (v.notes && v.notes.length > 0) return v.notes
     if (v.note) return [{ text: v.note, timestamp: v.noteTimestamp }]
@@ -270,7 +194,6 @@ export default function VideoWatchView({
 
   const [notes, setNotes] = useState<VideoNote[]>(() => resolveNotes(video))
 
-  // Sync notes when the parent updates video props (e.g., chapter switch without re-mount)
   useEffect(() => {
     setNotes(resolveNotes(video))
   }, [video.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -283,17 +206,9 @@ export default function VideoWatchView({
   const parsedNewTimestamp = parseTimestamp(newNoteTimestampRaw)
   const newTimestampInvalid = newNoteTimestampRaw.trim() !== '' && parsedNewTimestamp === null
 
-  function seekTo(seconds: number) {
-    if (useYTPlayer && ytPlayerRef.current) {
-      ytPlayerRef.current.seekTo(seconds, true)
-    } else if (videoType === 'youtube') {
-      setIframeSrc(`https://www.youtube.com/embed/${effectiveMediaId}?start=${seconds}&autoplay=1`)
-    } else {
-      setIframeSrc(`${embedUrl(effectiveMediaId)}#t=${seconds}`)
-    }
-  }
-
-  // Comment composer
+  // ── Comments ──
+  const [comments, setComments] = useState<Comment[]>([])
+  const [loadingComments, setLoadingComments] = useState(true)
   const [commentText, setCommentText] = useState('')
   const [timestampRaw, setTimestampRaw] = useState('')
   const [sendToCaptain, setSendToCaptain] = useState(false)
@@ -321,14 +236,29 @@ export default function VideoWatchView({
 
   useEffect(() => {
     setLoadingComments(true)
-    fetch(`/api/comments?videoId=${effectiveMediaId}`)
+    fetch(`/api/comments?videoId=${effectiveVideoId}`)
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setComments(data) })
       .finally(() => setLoadingComments(false))
-  }, [video.id, effectiveMediaId])
+  }, [video.id, effectiveVideoId])
 
   const parsedTimestamp = parseTimestamp(timestampRaw)
   const timestampInvalid = timestampRaw.trim() !== '' && parsedTimestamp === null
+
+  // ── Timestamp auto-capture on comment focus ──
+  function handleCommentFocus() {
+    if (timestampRaw.trim() !== '') return
+    const player = ytPlayerRef.current
+    if (!player) return
+    try {
+      const state = player.getPlayerState()
+      // Only capture if PLAYING (1) or PAUSED (2)
+      if (state === 1 || state === 2) {
+        const seconds = Math.floor(player.getCurrentTime())
+        setTimestampRaw(formatTime(seconds))
+      }
+    } catch { /* player may not be ready */ }
+  }
 
   async function persistNotes(nextNotes: VideoNote[]) {
     setSavingNote(true)
@@ -345,7 +275,6 @@ export default function VideoWatchView({
       if (res.ok) {
         setNotes(nextNotes)
         onNotesUpdated?.(video.id, nextNotes)
-        // Legacy callback compat
         onNoteUpdated?.(video.id, nextNotes[0]?.text ?? '', nextNotes[0]?.timestamp)
       }
     } finally {
@@ -411,7 +340,7 @@ export default function VideoWatchView({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: sessionId || undefined,
-          video_id: effectiveMediaId,
+          video_id: effectiveVideoId,
           video_title: video.name,
           author_name: userName,
           comment_text: replyText.trim(),
@@ -446,7 +375,7 @@ export default function VideoWatchView({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: targetSessionId || undefined,
-          video_id: effectiveMediaId,
+          video_id: effectiveVideoId,
           video_title: video.name,
           author_name: userName,
           timestamp_seconds: parsedTimestamp,
@@ -481,13 +410,16 @@ export default function VideoWatchView({
 
   const hasNotes = notes.length > 0
 
+  // Resolve thumbnail for YouTube link (not used in player but useful for og-tags)
+  void youtubeThumbnailUrl
+
   return (
     <div
       ref={backdropRef}
       className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-0 md:p-4 overflow-hidden"
       onClick={(e) => { if (e.target === backdropRef.current) onClose() }}
     >
-      <div className="relative w-full h-full md:h-auto max-w-7xl bg-white md:rounded-2xl shadow-2xl flex flex-col md:block overflow-hidden">
+      <div className="relative w-full h-full md:h-auto max-w-7xl bg-white md:rounded-2xl shadow-2xl flex flex-col sm:flex-row overflow-hidden">
 
         <button
           onClick={onClose}
@@ -496,50 +428,38 @@ export default function VideoWatchView({
           <X className="h-4 w-4" />
         </button>
 
-        {/* ── Left: Video ── */}
-        <div className="w-full md:w-[65%] bg-black flex flex-col">
+        {/* ── Left: Video (full width mobile, 65% desktop) ── */}
+        <div className="w-full sm:w-[65%] bg-black flex flex-col shrink-0">
           <div className="aspect-video w-full">
-            {useYTPlayer ? (
-              <div id={ytContainerIdRef.current} className="w-full h-full" />
-            ) : (
-              <iframe
-                ref={iframeRef}
-                key={iframeSrc}
-                src={iframeSrc}
-                className="w-full h-full"
-                allow="autoplay"
-                allowFullScreen
-                title={video.name}
-              />
-            )}
+            {/* YT.Player mounts into this div */}
+            <div id={containerIdRef.current} className="w-full h-full" />
           </div>
           <div className="bg-gray-900 px-4 py-2.5 flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-white text-sm font-semibold truncate">{video.name}</p>
-              {videoType === 'drive' && (
-                <a
-                  href={`https://drive.google.com/file/d/${effectiveMediaId}/view`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-400 hover:underline flex items-center gap-1"
-                >
-                  <ExternalLink className="h-3 w-3" />Open in Drive
-                </a>
-              )}
             </div>
             {onFavoriteToggle && (
               <button onClick={onFavoriteToggle} title={isFavorited ? 'Unfavorite' : 'Favorite'}>
                 <Heart className={clsx('h-5 w-5 transition-colors', isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500 hover:text-red-400')} />
               </button>
             )}
+            <a
+              href={`https://www.youtube.com/watch?v=${effectiveVideoId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-400 hover:underline flex items-center gap-1"
+              title="Open on YouTube"
+            >
+              <ExternalLink className="h-3 w-3" />
+            </a>
           </div>
         </div>
 
-        {/* ── Right panel ── */}
-        <div className="flex-1 md:absolute md:inset-y-0 md:right-0 md:w-[35%] flex flex-col overflow-hidden border-l border-gray-100">
+        {/* ── Right panel (full width mobile, 35% desktop) ── */}
+        <div className="flex-1 sm:w-[35%] flex flex-col overflow-hidden border-l border-gray-100">
 
-          {/* Chapter navigation */}
-          {siblingChapters && siblingChapters.length > 1 && onChapterChange && (
+          {/* Chapter navigation — vertical scrollable list */}
+          {siblingChapters && siblingChapters.length > 1 && (
             <div className="border-b border-purple-100 bg-purple-50 px-4 py-2.5 shrink-0">
               <div className="flex items-center gap-1.5 mb-2">
                 <Layers className="h-3.5 w-3.5 text-purple-500" />
@@ -547,26 +467,26 @@ export default function VideoWatchView({
                   Chapters ({siblingChapters.length})
                 </span>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {siblingChapters.map((ch) => {
-                  const isActive = useYTPlayer ? ch.id === activeChapterId : ch.id === video.id
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {siblingChapters.map((ch, idx) => {
+                  const isActive = idx === activeChapterIndex
                   return (
                     <button
                       key={ch.id}
-                      onClick={() => { if (!isActive) handleChapterClick(ch) }}
+                      onClick={() => handleChapterClick(ch, idx)}
                       className={clsx(
-                        'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all',
+                        'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left transition-all',
                         isActive
                           ? 'bg-purple-600 text-white shadow-sm'
-                          : 'bg-white text-purple-700 border border-purple-200 hover:bg-purple-100 hover:border-purple-300'
+                          : 'bg-white text-purple-700 border border-purple-100 hover:bg-purple-100 hover:border-purple-200'
                       )}
                     >
-                      {!isMultiVideo && ch.start_seconds != null && ch.start_seconds > 0 && (
-                        <span className={clsx('font-mono text-[10px]', isActive ? 'text-purple-200' : 'text-purple-400')}>
+                      {ch.start_seconds != null && (
+                        <span className={clsx('font-mono text-[10px] shrink-0', isActive ? 'text-purple-200' : 'text-purple-400')}>
                           {formatTime(ch.start_seconds)}
                         </span>
                       )}
-                      <span className="max-w-[120px] truncate">{ch.title}</span>
+                      <span className="flex-1 truncate font-medium">{ch.title}</span>
                     </button>
                   )
                 })}
@@ -579,7 +499,7 @@ export default function VideoWatchView({
             <div className="border-b border-amber-100 bg-amber-50 px-4 py-3 shrink-0 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-amber-700">
-                  📝 Captain&apos;s notes {notes.length > 0 && <span className="font-normal text-amber-500">({notes.length})</span>}
+                  Captain&apos;s notes {notes.length > 0 && <span className="font-normal text-amber-500">({notes.length})</span>}
                 </p>
                 {isCaptain && !addingNote && (
                   <button
@@ -592,7 +512,6 @@ export default function VideoWatchView({
                 )}
               </div>
 
-              {/* Existing notes list */}
               {notes.length > 0 && (
                 <div className="space-y-2">
                   {notes.map((n, i) => (
@@ -603,7 +522,7 @@ export default function VideoWatchView({
                           className="shrink-0 flex items-center gap-1 px-2 py-0.5 bg-amber-500 text-white text-xs font-mono font-bold rounded-full hover:bg-amber-600 active:scale-95 transition-all mt-0.5"
                           title="Jump to this moment"
                         >
-                          ▶ {formatTime(n.timestamp)}
+                          {formatTime(n.timestamp)}
                         </button>
                       )}
                       <p className="flex-1 text-xs text-amber-800 leading-relaxed">{n.text}</p>
@@ -626,7 +545,6 @@ export default function VideoWatchView({
                 <p className="text-xs text-amber-400 italic">No notes yet.</p>
               )}
 
-              {/* Add note form */}
               {addingNote && (
                 <div className="space-y-2 pt-1">
                   <textarea
@@ -674,7 +592,6 @@ export default function VideoWatchView({
 
           {/* Comments section — collapsible */}
           {!commentsExpanded ? (
-            /* ── Collapsed: compact summary bar ── */
             <div className="border-b border-gray-100 shrink-0">
               <button
                 onClick={() => setCommentsExpanded(true)}
@@ -705,9 +622,7 @@ export default function VideoWatchView({
               </div>
             </div>
           ) : (
-            /* ── Expanded: full composer + thread ── */
             <>
-              {/* Collapse toggle header */}
               <button
                 onClick={() => setCommentsExpanded(false)}
                 className="w-full px-4 py-2.5 flex items-center justify-between border-b border-gray-100 hover:bg-gray-50 transition-colors shrink-0"
@@ -734,6 +649,7 @@ export default function VideoWatchView({
                   ref={composerRef}
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
+                  onFocus={handleCommentFocus}
                   onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postComment() }}
                   rows={2}
                   placeholder="Leave a comment... (Cmd+Enter to post)"
@@ -756,6 +672,15 @@ export default function VideoWatchView({
                     {timestampInvalid && <span className="text-xs text-red-500">Invalid</span>}
                     {!timestampInvalid && parsedTimestamp !== null && (
                       <span className="text-xs text-blue-600">at {formatTime(parsedTimestamp)}</span>
+                    )}
+                    {timestampRaw && (
+                      <button
+                        onClick={() => setTimestampRaw('')}
+                        className="text-gray-300 hover:text-gray-500 transition-colors"
+                        title="Clear timestamp"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     )}
                   </div>
                   <button
@@ -807,7 +732,7 @@ export default function VideoWatchView({
                                 title="Jump to this moment"
                                 className="flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-600 text-white text-[10px] font-mono font-bold rounded-full hover:bg-blue-700 active:scale-95 transition-all"
                               >
-                                ▶ {formatTime(c.timestamp_seconds)}
+                                {formatTime(c.timestamp_seconds)}
                               </button>
                             )}
                             <span className="text-[10px] text-gray-400">{timeAgo(c.created_at)}</span>
@@ -820,7 +745,6 @@ export default function VideoWatchView({
                           </div>
                           <p className="text-xs text-gray-700 leading-relaxed">{c.comment_text}</p>
 
-                          {/* Reply actions */}
                           <div className="flex items-center gap-2 mt-1">
                             <button
                               onClick={() => startReply(c.id)}
@@ -842,7 +766,6 @@ export default function VideoWatchView({
                         </div>
                       </div>
 
-                      {/* Threaded replies */}
                       {isRepliesOpen && (
                         <div className="ml-6 pl-3 border-l-2 border-gray-200 mt-1 space-y-2">
                           {isLoadingRep && <p className="text-[10px] text-gray-400">Loading...</p>}
@@ -863,7 +786,6 @@ export default function VideoWatchView({
                         </div>
                       )}
 
-                      {/* Inline reply composer */}
                       {replyingTo === c.id && (
                         <div className="ml-6 pl-3 border-l-2 border-blue-200 mt-2 space-y-1.5">
                           <textarea

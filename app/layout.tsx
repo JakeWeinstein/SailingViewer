@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import YouTubeLoader from '@/components/YouTubeLoader'
 
 export const metadata: Metadata = {
   title: 'Telltale',
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="antialiased text-gray-900 bg-gray-50">{children}</body>
+      <body className="antialiased text-gray-900 bg-gray-50">
+        <YouTubeLoader />
+        {children}
+      </body>
     </html>
   )
 }
