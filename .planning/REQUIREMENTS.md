@@ -19,7 +19,7 @@
 - [x] **AUTH-01**: User can register with invite code, username, display name, and password
 - [x] **AUTH-02**: User can log in with username and password
 - [x] **AUTH-03**: Three roles exist: Captain (admin), Contributor (edit reference/articles), Viewer (watch/comment)
-- [ ] **AUTH-04**: Captain can view and manage all user accounts and assign roles
+- [x] **AUTH-04**: Captain can view and manage all user accounts and assign roles
 - [ ] **AUTH-05**: User can @mention other users in comments, articles, and Q&A posts
 - [x] **AUTH-06**: JWT auth with secure token validation (reject malformed tokens, no role defaulting)
 
@@ -106,7 +106,7 @@
 | AUTH-01 | Phase 1 | Complete |
 | AUTH-02 | Phase 1 | Complete |
 | AUTH-03 | Phase 1 | Complete |
-| AUTH-04 | Phase 1 | Pending |
+| AUTH-04 | Phase 1 | Complete |
 | AUTH-06 | Phase 1 | Complete |
 | VID-01 | Phase 2 | Pending |
 | VID-02 | Phase 2 | Pending |

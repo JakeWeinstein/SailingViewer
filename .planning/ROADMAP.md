@@ -12,7 +12,7 @@ TheoryForm is a rewrite of an existing sailing team video review platform. The b
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - Normalize database schema, secure auth, and enforce server boundaries
+- [x] **Phase 1: Foundation** - Normalize database schema, secure auth, and enforce server boundaries (completed 2026-03-10)
 - [ ] **Phase 2: Video Playback** - Reliable Drive and YouTube playback on mobile and desktop with chapter navigation
 - [ ] **Phase 3: Core Content** - Comments, sessions, Google Sheet import, and reference library
 - [ ] **Phase 4: Engagement** - Q&A posts, @mentions, notifications, and personal bookmarks
@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Videos previously stored as JSONB in sessions.videos exist as rows in a normalized session_videos table with proper foreign keys; existing data is preserved
   4. Every API route validates its inputs with Zod and returns structured errors on invalid payloads
   5. The Supabase service role key is unreachable from the browser (import 'server-only' enforced; confirmed via bundle inspection)
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [ ] 01-01-PLAN.md — Schema normalization, migration script, server-only enforcement, test infrastructure
 - [ ] 01-02-PLAN.md — Auth rewrite (JWT, Zod schemas, login/register, middleware)
@@ -89,7 +89,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 2/3 | In Progress|  |
+| 1. Foundation | 3/3 | Complete   | 2026-03-10 |
 | 2. Video Playback | 0/TBD | Not started | - |
 | 3. Core Content | 0/TBD | Not started | - |
 | 4. Engagement | 0/TBD | Not started | - |
