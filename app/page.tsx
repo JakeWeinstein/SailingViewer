@@ -7,7 +7,7 @@ import VideoWatchView from '@/components/VideoWatchView'
 import ReferenceManager from '@/components/ReferenceManager'
 import ArticleViewer from '@/components/ArticleViewer'
 import QATab from '@/components/QATab'
-import { thumbnailUrl, type SessionVideo, type Article } from '@/lib/types'
+import { youtubeThumbnailUrl, type SessionVideo, type Article } from '@/lib/types'
 import type { Comment } from '@/lib/types'
 import clsx from 'clsx'
 import Link from 'next/link'
@@ -183,7 +183,7 @@ export default function TeamFormPage() {
           <div className="relative aspect-video bg-gray-100 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={thumbnailUrl(video.id)}
+              src={youtubeThumbnailUrl(video.id)}
               alt={video.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               loading="lazy"
@@ -392,7 +392,7 @@ export default function TeamFormPage() {
                       <div className="relative aspect-video bg-gray-100 overflow-hidden">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={thumbnailUrl(video.id)}
+                          src={youtubeThumbnailUrl(video.id)}
                           alt={video.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           loading="lazy"
