@@ -45,8 +45,9 @@ Plans:
   2. A YouTube reference video with chapter markers allows clicking any chapter to seek to that timestamp
   3. A multi-part YouTube chapter sequence transitions automatically from one video to the next at the chapter boundary without user action
   4. The video player controls and video sizing display correctly on a 375px mobile viewport with no horizontal overflow
-**Plans:** 3 plans
+**Plans:** 4 plans
 Plans:
+- [ ] 02-00-PLAN.md — Vitest infrastructure + test stubs (Wave 0)
 - [ ] 02-01-PLAN.md — Schema migration (Drive to YouTube), type updates, YouTube API libraries
 - [ ] 02-02-PLAN.md — YouTube OAuth flow + auto-import pipeline + dashboard UI
 - [ ] 02-03-PLAN.md — Video player rewrite (YT.Player, chapter list, auto-advance, mobile, Drive cleanup)
@@ -94,7 +95,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete   | 2026-03-10 |
-| 2. Video Playback | 0/3 | Planning complete | - |
+| 2. Video Playback | 0/4 | Planning complete | - |
 | 3. Core Content | 0/TBD | Not started | - |
 | 4. Engagement | 0/TBD | Not started | - |
 | 5. Presentation and Search | 0/TBD | Not started | - |
