@@ -82,9 +82,11 @@ export default function VideoWatchView({
   const [iframeSrc, setIframeSrc] = useState(() => {
     if (useYTPlayer) return '' // Player API handles the embed
     if (videoType === 'youtube') {
+      // Enable JS API for multi-video chapters so we can detect video end
+      const jsApi = isMultiVideo ? '&enablejsapi=1' : ''
       return startSeconds
-        ? `https://www.youtube.com/embed/${effectiveMediaId}?start=${startSeconds}`
-        : youtubeEmbedUrl(effectiveMediaId)
+        ? `https://www.youtube.com/embed/${effectiveMediaId}?start=${startSeconds}${jsApi}`
+        : `${youtubeEmbedUrl(effectiveMediaId)}${jsApi ? '?enablejsapi=1' : ''}`
     }
     return startSeconds
       ? `${embedUrl(effectiveMediaId)}#t=${startSeconds}`
@@ -94,6 +96,7 @@ export default function VideoWatchView({
   // ── YouTube Player API state ──
   const ytPlayerRef = useRef<YTPlayer | null>(null)
   const ytContainerIdRef = useRef(`yt-player-${effectiveMediaId}`)
+  const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const [activeChapterId, setActiveChapterId] = useState(video.id)
   const activeChapterIdRef = useRef(video.id)
   const startSecondsRef = useRef(startSeconds)
@@ -204,6 +207,45 @@ export default function VideoWatchView({
 
     return () => clearInterval(interval)
   }, [useYTPlayer, siblingChapters])
+
+  // ── Multi-video: listen for YouTube iframe end event to auto-advance ──
+  useEffect(() => {
+    if (!isMultiVideo || videoType !== 'youtube' || !siblingChapters || siblingChapters.length <= 1) return
+
+    const iframe = iframeRef.current
+    // Tell the YouTube iframe to send us state change events
+    const subscribeCmd = JSON.stringify({ event: 'command', func: 'addEventListener', args: ['onStateChange'] })
+    const sendSubscribe = () => {
+      try { iframe?.contentWindow?.postMessage(subscribeCmd, 'https://www.youtube.com') } catch { /* ignore */ }
+    }
+    // Retry subscription until iframe is ready
+    const listenInterval = setInterval(sendSubscribe, 500)
+    setTimeout(() => clearInterval(listenInterval), 10000)
+
+    function handleMessage(e: MessageEvent) {
+      if (e.origin !== 'https://www.youtube.com') return
+      try {
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data
+        // YouTube sends { event: "onStateChange", info: 0 } when video ends (0 = ENDED)
+        if (data?.event === 'onStateChange' && data?.info === 0) {
+          const chapters = siblingChaptersRef.current
+          if (!chapters) return
+          const currentIdx = chapters.findIndex((ch) => ch.id === video.id)
+          const nextChapter = chapters[currentIdx + 1]
+          if (nextChapter) {
+            onChapterChangeRef.current?.(nextChapter)
+          }
+        }
+      } catch { /* ignore non-JSON messages */ }
+    }
+
+    window.addEventListener('message', handleMessage)
+    return () => {
+      clearInterval(listenInterval)
+      window.removeEventListener('message', handleMessage)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMultiVideo, videoType, video.id])
 
   // ── Handle chapter click: seek instead of re-mount ──
   const handleChapterClick = useCallback((chapter: ReferenceVideo) => {
@@ -461,6 +503,7 @@ export default function VideoWatchView({
               <div id={ytContainerIdRef.current} className="w-full h-full" />
             ) : (
               <iframe
+                ref={iframeRef}
                 key={iframeSrc}
                 src={iframeSrc}
                 className="w-full h-full"
