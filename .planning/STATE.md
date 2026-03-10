@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: "Checkpoint: 02-02 Task 3 human-verify (Tasks 1+2 complete)"
-last_updated: "2026-03-10T22:41:10.824Z"
+stopped_at: Completed 02-video-playback-02-02-PLAN.md
+last_updated: "2026-03-10T22:47:29.651Z"
 last_activity: 2026-03-10 — 02-01 YouTube-only foundation complete
 progress:
   total_phases: 5
@@ -56,6 +56,7 @@ Progress: [████████░░] 67% (plans: 4 of ~6 estimated)
 | Phase 02-video-playback P01 | 12 | 2 tasks | 5 files |
 | Phase 02-video-playback P00 | 5 | 2 tasks | 10 files |
 | Phase 02-video-playback P02 | 3 | 2 tasks | 6 files |
+| Phase 02-video-playback P02 | 3 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,10 @@ Recent decisions affecting current work:
 - [Phase 02-02]: 15-minute import cooldown stored as Unix timestamp in app_config (quota protection)
 - [Phase 02-02]: Deduplication via SELECT + in-memory Set before INSERT — avoids duplicate session_videos without DB constraint
 - [Phase 02-02]: Imported sessions created as is_active=false — captain controls visibility to team
+- [Phase 02-video-playback]: prompt=consent on OAuth URL generation ensures refresh_token always included, even after prior authorization
+- [Phase 02-video-playback]: 15-minute import cooldown enforced server-side via app_config timestamp (quota protection)
+- [Phase 02-video-playback]: Deduplication via SELECT + Set before INSERT — avoids duplicate session_videos without DB unique constraint
+- [Phase 02-video-playback]: Sessions created as is_active=false by default — captain activates manually to control team visibility
 
 ### Pending Todos
 
@@ -95,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T22:40:59.311Z
-Stopped at: Checkpoint: 02-02 Task 3 human-verify (Tasks 1+2 complete)
+Last session: 2026-03-10T22:47:29.641Z
+Stopped at: Completed 02-video-playback-02-02-PLAN.md
 Resume file: None
