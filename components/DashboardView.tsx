@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronDown, ChevronRight, Film, LogOut, Shield,
-  MessageSquare, Play, Grid3x3, BookOpen, Upload, FileText, Users, Anchor
+  MessageSquare, Play, Grid3x3, BookOpen, Upload, FileText, Users, Anchor, Youtube,
+  CheckCircle, AlertCircle, Loader2, RefreshCw
 } from 'lucide-react'
 import SessionManager from './SessionManager'
 import VideoManager from './VideoManager'
@@ -19,7 +20,7 @@ import { thumbnailUrl } from '@/lib/types'
 import clsx from 'clsx'
 import Link from 'next/link'
 
-type SidebarView = 'session' | 'reference' | 'upload' | 'articles' | 'team' | 'profile'
+type SidebarView = 'session' | 'reference' | 'upload' | 'articles' | 'team' | 'profile' | 'youtube'
 type MainTab = 'review' | 'videos'
 
 function formatTime(s: number) {
@@ -68,6 +69,14 @@ export default function DashboardView({ initialSessions, userRole, userName, use
   const [articlesLoading, setArticlesLoading] = useState(false)
   const [editingArticle, setEditingArticle] = useState<Article | null | 'new'>(null)
 
+  // YouTube state (captain-only)
+  const [youtubeConnected, setYoutubeConnected] = useState<boolean | null>(null)
+  const [youtubeChannelId, setYoutubeChannelId] = useState<string | null>(null)
+  const [youtubeBanner, setYoutubeBanner] = useState<'connected' | 'error' | null>(null)
+  const [importLoading, setImportLoading] = useState(false)
+  const [importResult, setImportResult] = useState<{ imported: number; sessions_created: number; skipped: number } | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
+
   const fetchReview = useCallback(async (sessionId: string) => {
     setLoadingReview(true)
     try {
@@ -104,6 +113,77 @@ export default function DashboardView({ initialSessions, userRole, userName, use
       }).finally(() => setArticlesLoading(false))
     }
   }, [sidebarView, articles.length])
+
+  // Fetch YouTube connection status on mount (captain only)
+  useEffect(() => {
+    if (!isCaptain) return
+    fetch('/api/youtube/status')
+      .then((r) => r.json())
+      .then((data) => {
+        setYoutubeConnected(data.connected ?? false)
+        setYoutubeChannelId(data.channelId ?? null)
+      })
+      .catch(() => setYoutubeConnected(false))
+  }, [isCaptain])
+
+  // Handle ?youtube=connected / ?youtube=error query params
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const yt = params.get('youtube')
+    if (yt === 'connected') {
+      setYoutubeBanner('connected')
+      setYoutubeConnected(true)
+      // Re-fetch status to get channelId
+      fetch('/api/youtube/status')
+        .then((r) => r.json())
+        .then((data) => { setYoutubeChannelId(data.channelId ?? null) })
+        .catch(() => {})
+      // Clean query param from URL
+      params.delete('youtube')
+      const newUrl = params.toString()
+        ? `${window.location.pathname}?${params}`
+        : window.location.pathname
+      window.history.replaceState({}, '', newUrl)
+      // Auto-dismiss after 5s
+      setTimeout(() => setYoutubeBanner(null), 5000)
+    } else if (yt === 'error') {
+      setYoutubeBanner('error')
+      params.delete('youtube')
+      const newUrl = params.toString()
+        ? `${window.location.pathname}?${params}`
+        : window.location.pathname
+      window.history.replaceState({}, '', newUrl)
+      setTimeout(() => setYoutubeBanner(null), 8000)
+    }
+  }, [])
+
+  async function handleYoutubeImport() {
+    setImportLoading(true)
+    setImportResult(null)
+    setImportError(null)
+    try {
+      const res = await fetch('/api/youtube/import', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        setImportError(data.error ?? 'Import failed — please try again')
+        if (res.status === 401) {
+          // Token expired — need to reconnect
+          setYoutubeConnected(false)
+        }
+      } else {
+        setImportResult(data)
+        // Refresh sessions if any were created
+        if (data.sessions_created > 0) {
+          await fetchSessions()
+        }
+      }
+    } catch {
+      setImportError('Import failed — please try again')
+    } finally {
+      setImportLoading(false)
+    }
+  }
 
   async function fetchSessions() {
     const res = await fetch('/api/sessions')
@@ -254,6 +334,25 @@ export default function DashboardView({ initialSessions, userRole, userName, use
             Articles
           </button>
 
+          {/* YouTube — captain only */}
+          {isCaptain && (
+            <button
+              onClick={() => setSidebarView('youtube')}
+              className={clsx(
+                'w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center gap-2',
+                sidebarView === 'youtube'
+                  ? 'bg-blue-50 text-blue-700 font-medium border-r-2 border-blue-600'
+                  : 'text-gray-600 hover:bg-gray-50'
+              )}
+            >
+              <Youtube className="h-4 w-4 shrink-0" />
+              YouTube
+              {youtubeConnected === true && (
+                <span className="ml-auto h-2 w-2 bg-green-500 rounded-full shrink-0" />
+              )}
+            </button>
+          )}
+
           {/* Team — captain only */}
           {isCaptain && (
             <button
@@ -330,6 +429,20 @@ export default function DashboardView({ initialSessions, userRole, userName, use
 
       {/* ── Main ── */}
       <main className="flex-1 overflow-y-auto">
+
+        {/* YouTube connection banner */}
+        {youtubeBanner === 'connected' && (
+          <div className="flex items-center gap-2 px-6 py-3 bg-green-50 border-b border-green-100 text-sm text-green-700">
+            <CheckCircle className="h-4 w-4 shrink-0" />
+            YouTube channel connected successfully
+          </div>
+        )}
+        {youtubeBanner === 'error' && (
+          <div className="flex items-center gap-2 px-6 py-3 bg-red-50 border-b border-red-100 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            Failed to connect YouTube — try again
+          </div>
+        )}
 
         {/* Reference Library view */}
         {sidebarView === 'reference' && (
@@ -426,6 +539,109 @@ export default function DashboardView({ initialSessions, userRole, userName, use
         {sidebarView === 'team' && isCaptain && (
           <div className="max-w-5xl mx-auto px-6 py-6">
             <TeamManager />
+          </div>
+        )}
+
+        {/* YouTube view — captain only */}
+        {sidebarView === 'youtube' && isCaptain && (
+          <div className="max-w-xl mx-auto px-6 py-6">
+            <div className="flex items-center gap-3 mb-6">
+              <Youtube className="h-6 w-6 text-red-500" />
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">YouTube Integration</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Auto-import practice videos from your YouTube channel</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
+              {/* Connection status */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-gray-700">Connection status</p>
+                  {youtubeChannelId && (
+                    <p className="text-xs text-gray-400 mt-0.5">Channel: {youtubeChannelId}</p>
+                  )}
+                </div>
+                {youtubeConnected === null ? (
+                  <span className="text-xs text-gray-400">Checking…</span>
+                ) : youtubeConnected ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 px-3 py-1.5 rounded-full">
+                    <span className="h-2 w-2 bg-green-500 rounded-full" />
+                    Connected
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
+                    Not connected
+                  </span>
+                )}
+              </div>
+
+              {/* Connect / reconnect button */}
+              {!youtubeConnected && (
+                <a
+                  href="/api/youtube/auth"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+                >
+                  <Youtube className="h-4 w-4" />
+                  Connect YouTube
+                </a>
+              )}
+
+              {youtubeConnected && (
+                <>
+                  <hr className="border-gray-100" />
+
+                  {/* Reconnect link (subtle) */}
+                  <a
+                    href="/api/youtube/auth"
+                    className="text-xs text-gray-400 hover:text-gray-600 underline transition-colors"
+                  >
+                    Re-authorize / switch channel
+                  </a>
+
+                  <hr className="border-gray-100" />
+
+                  {/* Import controls */}
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-1">Import new videos</p>
+                    <p className="text-xs text-gray-400 mb-3">
+                      Discovers recent uploads from your channel and creates sessions grouped by date. Videos already imported are skipped. Import is limited to once every 15 minutes.
+                    </p>
+                    <button
+                      onClick={handleYoutubeImport}
+                      disabled={importLoading}
+                      className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {importLoading
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <RefreshCw className="h-4 w-4" />
+                      }
+                      {importLoading ? 'Importing…' : 'Import new videos'}
+                    </button>
+                  </div>
+
+                  {/* Import result */}
+                  {importResult && !importError && (
+                    <div className="bg-green-50 rounded-lg px-4 py-3 text-sm text-green-800">
+                      <p className="font-semibold mb-1">Import complete</p>
+                      <ul className="space-y-0.5 text-xs">
+                        <li>{importResult.imported} video{importResult.imported !== 1 ? 's' : ''} imported</li>
+                        <li>{importResult.sessions_created} session{importResult.sessions_created !== 1 ? 's' : ''} created</li>
+                        <li>{importResult.skipped} already imported (skipped)</li>
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Import error */}
+                  {importError && (
+                    <div className="flex items-start gap-2 bg-red-50 rounded-lg px-4 py-3 text-sm text-red-700">
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                      <span>{importError}</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
 
