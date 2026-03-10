@@ -1,3 +1,92 @@
+// ─── Database types (normalized v2 schema) ───────────────────────────────────
+
+export type DbUser = {
+  id: string
+  username: string
+  display_name: string
+  password_hash: string
+  role: 'captain' | 'contributor' | 'viewer'
+  is_active: boolean
+  is_seed: boolean
+  must_change_password: boolean
+  last_login_at: string | null
+  created_at: string
+}
+
+export type DbSession = {
+  id: string
+  label: string
+  is_active: boolean
+  created_at: string
+}
+
+export type DbSessionVideo = {
+  id: string
+  session_id: string
+  drive_file_id: string
+  title: string
+  position: number
+  note: string | null
+  note_timestamp: number | null
+  created_at: string
+}
+
+export type DbComment = {
+  id: string
+  session_id: string | null
+  video_id: string | null
+  author_id: string
+  timestamp_seconds: number | null
+  comment_text: string
+  send_to_captain: boolean
+  parent_id: string | null
+  created_at: string
+}
+
+export type DbAppConfig = {
+  key: string
+  value: string
+  updated_at: string
+}
+
+// ─── Legacy types (kept for backward compat until components are rewritten) ──
+// These match the old lib/supabase.ts exports.
+
+/** @deprecated Use DbSession + DbSessionVideo after component rewrite */
+export type Session = {
+  id: string
+  label: string
+  videos: SessionVideo[]
+  is_active: boolean
+  created_at: string
+}
+
+/** @deprecated Use DbComment after component rewrite */
+export type Comment = {
+  id: string
+  session_id: string | null
+  video_id: string | null
+  video_title: string | null
+  author_name: string
+  timestamp_seconds: number | null
+  comment_text: string
+  send_to_captain: boolean
+  created_at: string
+  parent_id: string | null
+  reply_count?: number
+}
+
+/** @deprecated Use DbUser after component rewrite */
+export type User = {
+  id: string
+  username: string
+  display_name: string
+  role: 'captain' | 'contributor'
+  created_at: string
+}
+
+// ─── UI types ────────────────────────────────────────────────────────────────
+
 export type VideoNote = {
   text: string
   timestamp?: number  // seconds

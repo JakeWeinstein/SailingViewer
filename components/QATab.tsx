@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Send, Shield, MessageSquare, ChevronDown, ChevronUp, Loader2, Reply } from 'lucide-react'
 import { timeAgo, initials, avatarColor } from '@/lib/comment-utils'
-import type { Comment } from '@/lib/supabase'
+import type { Comment } from '@/lib/types'
 import clsx from 'clsx'
 
 interface QATabProps {

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers, Reply } from 'lucide-react'
 import { embedUrl, youtubeEmbedUrl, parseTimestamp, formatTime, type SessionVideo, type VideoNote, type ReferenceVideo } from '@/lib/types'
 import { timeAgo, initials, avatarColor } from '@/lib/comment-utils'
-import type { Comment } from '@/lib/supabase'
+import type { Comment } from '@/lib/types'
 import clsx from 'clsx'
 
 /* ── YouTube IFrame API type declarations ── */

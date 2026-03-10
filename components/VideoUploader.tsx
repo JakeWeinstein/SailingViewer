@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Upload, Loader2, Link, FileSpreadsheet, Check, X, ChevronDown } from 'lucide-react'
 import { extractDriveFileId, type SessionVideo } from '@/lib/types'
-import type { Session } from '@/lib/supabase'
+import type { Session } from '@/lib/types'
 import clsx from 'clsx'
 
 type AddMode = 'manual' | 'sheet'

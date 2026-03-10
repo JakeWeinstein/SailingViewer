@@ -8,7 +8,7 @@ import ReferenceManager from '@/components/ReferenceManager'
 import ArticleViewer from '@/components/ArticleViewer'
 import QATab from '@/components/QATab'
 import { thumbnailUrl, type SessionVideo, type Article } from '@/lib/types'
-import type { Comment } from '@/lib/supabase'
+import type { Comment } from '@/lib/types'
 import clsx from 'clsx'
 import Link from 'next/link'
 
