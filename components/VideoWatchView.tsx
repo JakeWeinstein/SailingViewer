@@ -69,8 +69,13 @@ export default function VideoWatchView({
 }: VideoWatchViewProps) {
   const effectiveMediaId = mediaId ?? video.id
 
-  // Determine whether to use the YouTube Player API (YouTube + has chapters)
-  const useYTPlayer = videoType === 'youtube' && !!siblingChapters && siblingChapters.length > 1
+  // Multi-video chapters: each chapter is a separate video (different video_ref values)
+  const isMultiVideo = siblingChapters
+    ? new Set(siblingChapters.map((s) => s.video_ref)).size > 1
+    : false
+
+  // Use YouTube Player API only for same-video chapters (timestamp seeking within one video)
+  const useYTPlayer = videoType === 'youtube' && !!siblingChapters && siblingChapters.length > 1 && !isMultiVideo
 
   const [comments, setComments] = useState<Comment[]>([])
   const [loadingComments, setLoadingComments] = useState(true)
@@ -513,7 +518,7 @@ export default function VideoWatchView({
                           : 'bg-white text-purple-700 border border-purple-200 hover:bg-purple-100 hover:border-purple-300'
                       )}
                     >
-                      {ch.start_seconds != null && ch.start_seconds > 0 && (
+                      {!isMultiVideo && ch.start_seconds != null && ch.start_seconds > 0 && (
                         <span className={clsx('font-mono text-[10px]', isActive ? 'text-purple-200' : 'text-purple-400')}>
                           {formatTime(ch.start_seconds)}
                         </span>

@@ -681,13 +681,25 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
 
       {/* Video viewer */}
       {watchTarget && (() => {
-        // Collect sibling chapters if this is a chapter video
+        // Collect sibling chapters whether clicking a parent or a chapter
         const parentId = watchTarget.parent_video_id
-        const siblings = parentId
-          ? videos
-              .filter((v) => v.parent_video_id === parentId)
-              .sort((a, b) => (a.start_seconds ?? 0) - (b.start_seconds ?? 0))
-          : undefined
+        const resolvedParentId = parentId || watchTarget.id
+        const children = videos
+          .filter((v) => v.parent_video_id === resolvedParentId)
+          .sort((a, b) => (a.start_seconds ?? 0) - (b.start_seconds ?? 0))
+
+        let siblings: ReferenceVideo[] | undefined
+        if (children.length > 0) {
+          const parentVideo = parentId ? videos.find((v) => v.id === parentId) : watchTarget
+          // Multi-video chapters: each child has a different video_ref from parent
+          const isMultiVideo = parentVideo && children.some((c) => c.video_ref !== parentVideo.video_ref)
+          if (isMultiVideo && parentVideo) {
+            // Include parent as "Part 1" so user can navigate back to it
+            siblings = [{ ...parentVideo, title: 'Part 1' }, ...children]
+          } else {
+            siblings = children
+          }
+        }
 
         return (
           <VideoWatchView
