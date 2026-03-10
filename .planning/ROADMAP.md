@@ -13,7 +13,7 @@ TheoryForm is a rewrite of an existing sailing team video review platform. The b
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Normalize database schema, secure auth, and enforce server boundaries (completed 2026-03-10)
-- [ ] **Phase 2: Video Playback** - Reliable Drive and YouTube playback on mobile and desktop with chapter navigation
+- [ ] **Phase 2: Video Playback** - YouTube-only playback on mobile and desktop with chapter navigation and auto-import
 - [ ] **Phase 3: Core Content** - Comments, sessions, Google Sheet import, and reference library
 - [ ] **Phase 4: Engagement** - Q&A posts, @mentions, notifications, and personal bookmarks
 - [ ] **Phase 5: Presentation and Search** - Review queue, presentation mode, and full-text search
@@ -32,20 +32,24 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. The Supabase service role key is unreachable from the browser (import 'server-only' enforced; confirmed via bundle inspection)
 **Plans:** 3/3 plans complete
 Plans:
-- [ ] 01-01-PLAN.md — Schema normalization, migration script, server-only enforcement, test infrastructure
-- [ ] 01-02-PLAN.md — Auth rewrite (JWT, Zod schemas, login/register, middleware)
-- [ ] 01-03-PLAN.md — User management API + Team tab UI + profile editing
+- [x] 01-01-PLAN.md — Schema normalization, migration script, server-only enforcement, test infrastructure
+- [x] 01-02-PLAN.md — Auth rewrite (JWT, Zod schemas, login/register, middleware)
+- [x] 01-03-PLAN.md — User management API + Team tab UI + profile editing
 
 ### Phase 2: Video Playback
-**Goal**: Videos play reliably on every device — Drive embeds load or show a fallback, YouTube chapters seek correctly, and multi-part chapters transition seamlessly
+**Goal**: Videos play reliably on every device — all content is YouTube-only, chapters seek correctly, multi-part videos auto-advance, and the captain can import videos from the team YouTube channel via OAuth
 **Depends on**: Phase 1
 **Requirements**: VID-01, VID-02, VID-03, VID-04, VID-05
 **Success Criteria** (what must be TRUE):
-  1. A team member on an iPhone with default Safari privacy settings can watch a Drive-embedded practice video, or sees a clear "Open in Drive" fallback link if the embed fails
+  1. A team member on any device (including iPhone Safari) can watch a YouTube-embedded practice video reliably
   2. A YouTube reference video with chapter markers allows clicking any chapter to seek to that timestamp
   3. A multi-part YouTube chapter sequence transitions automatically from one video to the next at the chapter boundary without user action
   4. The video player controls and video sizing display correctly on a 375px mobile viewport with no horizontal overflow
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 02-01-PLAN.md — Schema migration (Drive to YouTube), type updates, YouTube API libraries
+- [ ] 02-02-PLAN.md — YouTube OAuth flow + auto-import pipeline + dashboard UI
+- [ ] 02-03-PLAN.md — Video player rewrite (YT.Player, chapter list, auto-advance, mobile, Drive cleanup)
 
 ### Phase 3: Core Content
 **Goal**: Team members can leave timestamped comments on practice videos, and the captain can manage sessions, import videos from Google Sheets, and maintain the reference library and article collection
@@ -90,7 +94,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete   | 2026-03-10 |
-| 2. Video Playback | 0/TBD | Not started | - |
+| 2. Video Playback | 0/3 | Planning complete | - |
 | 3. Core Content | 0/TBD | Not started | - |
 | 4. Engagement | 0/TBD | Not started | - |
 | 5. Presentation and Search | 0/TBD | Not started | - |
