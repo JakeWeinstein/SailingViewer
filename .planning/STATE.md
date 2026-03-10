@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-foundation-01-PLAN.md
-last_updated: "2026-03-10T20:15:00.123Z"
+stopped_at: Completed 01-foundation-02-PLAN.md
+last_updated: "2026-03-10T20:32:47.921Z"
 last_activity: 2026-03-10 — Roadmap created
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01-foundation P01 | 4 | 2 tasks | 10 files |
+| Phase 01-foundation P02 | 14 | 2 tasks | 21 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,8 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: Kept deprecated Session/Comment/User type aliases in lib/types.ts for backward compat during incremental component rewrite
 - [Phase 01-foundation]: Migration split: migrate.sql handles DDL; migrate.ts handles bcrypt hash generation (requires Node.js, not raw SQL)
 - [Phase 01-foundation]: Db* prefix convention for normalized schema types to distinguish from legacy UI types
+- [Phase 01-foundation]: Unified login: all roles (captain/contributor/viewer) use username+password; separate captain password-only flow removed
+- [Phase 01-foundation]: Register assigns viewer role; COOKIE_NAME renamed tf_captain_session->tf_session for multi-role usage
 
 ### Pending Todos
 
@@ -77,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T20:15:00.121Z
-Stopped at: Completed 01-foundation-01-PLAN.md
+Last session: 2026-03-10T20:32:47.919Z
+Stopped at: Completed 01-foundation-02-PLAN.md
 Resume file: None

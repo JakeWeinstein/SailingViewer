@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Videos previously stored as JSONB in sessions.videos exist as rows in a normalized session_videos table with proper foreign keys; existing data is preserved
   4. Every API route validates its inputs with Zod and returns structured errors on invalid payloads
   5. The Supabase service role key is unreachable from the browser (import 'server-only' enforced; confirmed via bundle inspection)
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 - [ ] 01-01-PLAN.md — Schema normalization, migration script, server-only enforcement, test infrastructure
 - [ ] 01-02-PLAN.md — Auth rewrite (JWT, Zod schemas, login/register, middleware)
@@ -89,7 +89,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 1/3 | In Progress|  |
+| 1. Foundation | 2/3 | In Progress|  |
 | 2. Video Playback | 0/TBD | Not started | - |
 | 3. Core Content | 0/TBD | Not started | - |
 | 4. Engagement | 0/TBD | Not started | - |
