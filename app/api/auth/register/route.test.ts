@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
