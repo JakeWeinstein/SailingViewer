@@ -114,7 +114,7 @@ export default function DashboardView({ initialSessions, userRole, userName }: P
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
-    window.location.href = '/dashboard/login'
+    window.location.href = '/login'
   }
 
   function toggleExpand(videoId: string) {
