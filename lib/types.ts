@@ -23,7 +23,7 @@ export type DbSession = {
 export type DbSessionVideo = {
   id: string
   session_id: string
-  drive_file_id: string
+  youtube_video_id: string
   title: string
   position: number
   note: string | null
@@ -105,8 +105,8 @@ export type SessionVideo = {
 export type ReferenceVideo = {
   id: string           // DB UUID
   title: string
-  type: 'drive' | 'youtube'
-  video_ref: string    // Drive file ID or YouTube video ID
+  type: 'youtube'
+  video_ref: string    // YouTube video ID
   note?: string        // legacy single note
   note_timestamp?: number
   notes?: VideoNote[]  // new multiple notes
@@ -151,10 +151,18 @@ export type Article = {
   updated_at: string
 }
 
+/**
+ * @deprecated Drive thumbnails are no longer used. Use youtubeThumbnailUrl() instead.
+ * Kept temporarily for backward compatibility until component rewrite in Plan 03.
+ */
 export function thumbnailUrl(id: string) {
   return `https://drive.google.com/thumbnail?id=${id}&sz=w400-h225`
 }
 
+/**
+ * @deprecated Drive embeds are no longer used. Use youtubeEmbedUrl() instead.
+ * Kept temporarily for backward compatibility until component rewrite in Plan 03.
+ */
 export function embedUrl(id: string) {
   return `https://drive.google.com/file/d/${id}/preview`
 }
@@ -188,7 +196,10 @@ export function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-/** Extract a Drive file ID from a share URL or raw ID string */
+/**
+ * @deprecated Drive file IDs are no longer used. Use extractYouTubeInfo() instead.
+ * Kept temporarily for backward compatibility until component rewrite in Plan 03.
+ */
 export function extractDriveFileId(input: string): string | null {
   const s = input.trim()
   const m1 = s.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)
