@@ -1,21 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { signToken, COOKIE_NAME } from '@/lib/auth'
+import { RegisterSchema } from '@/lib/schemas/auth'
 import { supabase } from '@/lib/supabase'
 import bcrypt from 'bcryptjs'
 
-export async function POST(req: NextRequest) {
-  const { inviteCode, username, displayName, password } = await req.json()
+function setCookie(response: NextResponse, token: string) {
+  response.cookies.set(COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+    path: '/',
+  })
+}
 
-  if (!inviteCode || inviteCode !== process.env.INVITE_CODE) {
-    return NextResponse.json({ error: 'Invalid invite code' }, { status: 403 })
+export async function POST(req: NextRequest) {
+  const body = await req.json()
+  const parsed = RegisterSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    )
   }
 
-  if (!username?.trim() || !displayName?.trim() || !password) {
-    return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
+  const { inviteCode, username, displayName, password } = parsed.data
+
+  // Validate invite code from app_config table
+  const { data: configRow } = await supabase
+    .from('app_config')
+    .select('value')
+    .eq('key', 'invite_code')
+    .single()
+
+  if (!configRow || configRow.value !== inviteCode) {
+    return NextResponse.json({ error: 'Invalid invite code' }, { status: 403 })
   }
 
   const cleanUsername = username.trim().toLowerCase()
 
-  // Check uniqueness
+  // Check username uniqueness
   const { data: existing } = await supabase
     .from('users')
     .select('id')
@@ -28,14 +52,40 @@ export async function POST(req: NextRequest) {
 
   const password_hash = await bcrypt.hash(password, 12)
 
-  const { error } = await supabase.from('users').insert({
-    username: cleanUsername,
-    display_name: displayName.trim(),
-    password_hash,
-    role: 'contributor',
+  const { data: newUser, error } = await supabase
+    .from('users')
+    .insert({
+      username: cleanUsername,
+      display_name: displayName.trim(),
+      password_hash,
+      role: 'viewer',
+      is_active: true,
+      is_seed: false,
+    })
+    .select('id, username, display_name, role')
+    .single()
+
+  if (error || !newUser) {
+    return NextResponse.json({ error: error?.message ?? 'Failed to create user' }, { status: 500 })
+  }
+
+  const token = await signToken({
+    role: 'viewer',
+    userId: newUser.id,
+    userName: newUser.display_name,
   })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  return NextResponse.json({ ok: true }, { status: 201 })
+  const response = NextResponse.json(
+    {
+      user: {
+        id: newUser.id,
+        username: newUser.username,
+        displayName: newUser.display_name,
+        role: newUser.role,
+      },
+    },
+    { status: 201 }
+  )
+  setCookie(response, token)
+  return response
 }

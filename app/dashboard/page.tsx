@@ -8,7 +8,7 @@ export default async function DashboardPage() {
   const cookieStore = await cookies()
   const token = cookieStore.get(COOKIE_NAME)?.value
   const payload = token ? await verifyToken(token) : null
-  if (!payload) redirect('/dashboard/login')
+  if (!payload) redirect('/login')
 
   const { data: sessions, error } = await supabase
     .from('sessions')
@@ -27,7 +27,7 @@ export default async function DashboardPage() {
     <DashboardView
       initialSessions={sessions ?? []}
       userRole={payload.role}
-      userName={payload.userName ?? (payload.role === 'captain' ? 'Captain' : 'Contributor')}
+      userName={payload.userName}
     />
   )
 }

@@ -39,7 +39,7 @@ interface WatchTarget { video: SessionVideo; sessionId: string }
 
 interface Props {
   initialSessions: Session[]
-  userRole: 'captain' | 'contributor'
+  userRole: 'captain' | 'contributor' | 'viewer'
   userName: string
 }
 
