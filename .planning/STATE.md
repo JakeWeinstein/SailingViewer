@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 02-video-playback plan 02-01
-last_updated: "2026-03-10T21:32:00.000Z"
-last_activity: 2026-03-10 — Phase 2 Plan 01 complete (YouTube-only foundation)
+status: completed
+stopped_at: Completed 02-video-playback-00-PLAN.md
+last_updated: "2026-03-10T22:36:08.262Z"
+last_activity: 2026-03-10 — 02-01 YouTube-only foundation complete
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 6
-  completed_plans: 4
+  total_plans: 7
+  completed_plans: 5
   percent: 67
 ---
 
@@ -54,6 +54,7 @@ Progress: [████████░░] 67% (plans: 4 of ~6 estimated)
 | Phase 01-foundation P02 | 14 | 2 tasks | 21 files |
 | Phase 01-foundation P03 | 4 | 2 tasks | 9 files |
 | Phase 02-video-playback P01 | 12 | 2 tasks | 5 files |
+| Phase 02-video-playback P00 | 5 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,8 @@ Recent decisions affecting current work:
 - [Phase 02-01]: Retained deprecated Drive helpers (thumbnailUrl, embedUrl, extractDriveFileId) with @deprecated JSDoc — components still import them; deletion deferred to Plan 03
 - [Phase 02-01]: youtube-api.ts omits Window.YT redeclaration to avoid conflict with VideoWatchView.tsx precise YT type
 - [Phase 02-01]: YouTubeTokens type explicitly exported from youtube-oauth.ts for type safety
+- [Phase 02-video-playback]: Global test environment is jsdom; window.YT mock guarded by typeof window check for node-env compat
+- [Phase 02-video-playback]: test.todo stubs for Plans 01/03/06/07 — allows npx vitest run to exit cleanly in Wave 0
 
 ### Pending Todos
 
@@ -87,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-10T21:32:00.000Z
-Stopped at: Completed 02-video-playback plan 02-01
-Resume file: .planning/phases/02-video-playback/02-01-SUMMARY.md
+Last session: 2026-03-10T22:36:08.260Z
+Stopped at: Completed 02-video-playback-00-PLAN.md
+Resume file: None
