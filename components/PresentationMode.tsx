@@ -1,16 +1,27 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   X, BookOpen, Archive, CheckCircle2, RotateCcw, Send, Presentation,
   ChevronDown, ChevronRight, Clock, Film, ListChecks, Search, FolderOpen, Play,
+  MessageSquare, FileText, HelpCircle,
 } from 'lucide-react'
 import type { Comment, SessionVideo, ReferenceVideo, ReferenceFolder } from '@/lib/types'
 import { youtubeEmbedUrl, youtubeThumbnailUrl } from '@/lib/types'
 import { timeAgo, initials, avatarColor } from '@/lib/comment-utils'
 import PresentationQueue from '@/components/PresentationQueue'
 import clsx from 'clsx'
+
+interface SearchResult {
+  id: string
+  type: 'video' | 'comment' | 'article' | 'qa' | 'reference' | 'chapter'
+  title: string
+  snippet: string
+  url_hint: string
+  rank: number
+  created_at: string
+}
 
 type SidebarMode = 'queue' | 'videos' | 'reference'
 
@@ -93,6 +104,13 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
   const [browseCommentSending, setBrowseCommentSending] = useState(false)
   const [browseCommentSuccess, setBrowseCommentSuccess] = useState(false)
 
+  // Search state
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
   // Fetch review queue items when session changes
   const fetchItems = useCallback(async (sessionId: string) => {
     setLoading(true)
@@ -137,6 +155,35 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
       setRefFetched(true)
     }).finally(() => setRefLoading(false))
   }, [sidebarMode, refFetched])
+
+  // Debounced search
+  useEffect(() => {
+    if (!showSearch || searchQuery.length < 2) {
+      setSearchResults([])
+      return
+    }
+    setSearchLoading(true)
+    const timer = setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(searchQuery)}&limit=20`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data)) setSearchResults(data)
+        })
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearchLoading(false))
+    }, 300)
+    return () => {
+      clearTimeout(timer)
+      setSearchLoading(false)
+    }
+  }, [searchQuery, showSearch])
+
+  // Focus search input when search opens
+  useEffect(() => {
+    if (showSearch) {
+      setTimeout(() => searchInputRef.current?.focus(), 50)
+    }
+  }, [showSearch])
 
   // Session videos for the selected session
   const sessionVideos = useMemo(() => {
@@ -199,16 +246,119 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
     setSidebarMode(mode)
   }
 
-  // Keyboard shortcuts (only in queue mode)
+  // Toggle search overlay
+  function toggleSearch() {
+    if (showSearch) {
+      setShowSearch(false)
+      setSearchQuery('')
+      setSearchResults([])
+    } else {
+      setShowSearch(true)
+    }
+  }
+
+  // Handle search result click
+  function handleSearchResultClick(result: SearchResult) {
+    switch (result.type) {
+      case 'video': {
+        // Ensure sessions are fetched then select
+        if (!fullSessionsFetched) setFullSessionsFetched(false) // trigger fetch
+        switchSidebarMode('videos')
+        setSelectedBrowseVideo({ youtubeId: result.id, title: result.title, source: 'session' })
+        break
+      }
+      case 'reference':
+      case 'chapter': {
+        switchSidebarMode('reference')
+        // Look up the video_ref from refVideos
+        const refId = result.type === 'chapter' ? result.url_hint : result.id
+        const refVideo = refVideos.find((v) =>
+          result.type === 'chapter' ? v.id === refId || v.video_ref === refId : v.id === result.id
+        )
+        if (refVideo) {
+          setSelectedBrowseVideo({
+            youtubeId: refVideo.video_ref,
+            title: refVideo.title,
+            source: 'reference',
+            startSeconds: refVideo.start_seconds ?? undefined,
+          })
+        } else if (!refFetched) {
+          // Trigger reference data fetch; selection will need manual follow-up
+          setRefFetched(false)
+        }
+        break
+      }
+      case 'comment': {
+        // Parse url_hint "session_id|video_id"
+        const [, videoId] = (result.url_hint || '').split('|')
+        // Parse timestamp from snippet prefix like "[1:30] comment text"
+        const tsMatch = result.snippet.match(/^\[(\d+):(\d{2})\]/)
+        const seconds = tsMatch ? parseInt(tsMatch[1], 10) * 60 + parseInt(tsMatch[2], 10) : undefined
+        if (videoId) {
+          switchSidebarMode('videos')
+          setSelectedBrowseVideo({
+            youtubeId: videoId,
+            title: result.title,
+            source: 'session',
+            startSeconds: seconds,
+          })
+        }
+        break
+      }
+      case 'article': {
+        window.open('/learn/' + result.id, '_blank')
+        break
+      }
+      case 'qa':
+        // Q&A posts not viewable in presentation mode — no action
+        break
+    }
+    // Clear search after selection
+    setShowSearch(false)
+    setSearchQuery('')
+    setSearchResults([])
+  }
+
+  // Search result icon helper
+  function searchResultIcon(type: SearchResult['type']) {
+    switch (type) {
+      case 'video': return <Film className="h-4 w-4 text-blue-400 shrink-0" />
+      case 'reference': return <BookOpen className="h-4 w-4 text-teal-400 shrink-0" />
+      case 'chapter': return <BookOpen className="h-4 w-4 text-teal-400 shrink-0" />
+      case 'comment': return <MessageSquare className="h-4 w-4 text-green-400 shrink-0" />
+      case 'article': return <FileText className="h-4 w-4 text-purple-400 shrink-0" />
+      case 'qa': return <HelpCircle className="h-4 w-4 text-amber-400 shrink-0" />
+    }
+  }
+
+  // Keyboard shortcuts
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement).tagName
       const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' ||
         (e.target as HTMLElement).isContentEditable
+
+      // Escape: close search first, then exit presentation
+      if (e.key === 'Escape') {
+        if (showSearch) {
+          e.preventDefault()
+          setShowSearch(false)
+          setSearchQuery('')
+          setSearchResults([])
+          return
+        }
+        if (!isEditable) {
+          router.push('/dashboard')
+        }
+        return
+      }
+
       if (isEditable) return
 
-      if (e.key === 'Escape') {
-        router.push('/dashboard')
+      // "/" opens search
+      if (e.key === '/') {
+        e.preventDefault()
+        setShowSearch(true)
         return
       }
 
@@ -229,7 +379,7 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeItemId, flatItems, activeItem, showArchived, sidebarMode])
+  }, [activeItemId, flatItems, activeItem, showArchived, sidebarMode, showSearch])
 
   // Mark as reviewed
   async function handleMarkReviewed(id: string) {
@@ -421,6 +571,18 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
           <Presentation className="h-5 w-5 text-blue-400 shrink-0" />
           <span className="text-sm font-bold text-white flex-1">Presentation</span>
           <button
+            onClick={toggleSearch}
+            className={clsx(
+              'p-1.5 rounded-lg transition-colors',
+              showSearch
+                ? 'bg-blue-600 text-white'
+                : 'hover:bg-gray-800 text-gray-400 hover:text-white'
+            )}
+            title="Search (/)"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+          <button
             onClick={() => router.push('/dashboard')}
             className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
             title="Exit (Esc)"
@@ -561,10 +723,94 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
           </div>
         )}
 
+        {/* Search bar (when active) */}
+        {showSearch && (
+          <div className="px-3 py-2 border-b border-gray-800">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search videos, comments, articles..."
+                className="w-full bg-gray-800 text-sm text-gray-200 placeholder-gray-500 pl-8 pr-3 py-2 rounded-lg border border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        )}
+
         {/* Sidebar content area */}
         <div className="flex-1 overflow-y-auto">
+          {/* Search results overlay */}
+          {showSearch && (
+            <div className="py-2">
+              {searchLoading && (
+                <p className="text-center text-gray-500 text-sm py-6">Searching...</p>
+              )}
+              {!searchLoading && searchQuery.length >= 2 && searchResults.length === 0 && (
+                <p className="text-center text-gray-500 text-sm py-6">No results found</p>
+              )}
+              {!searchLoading && searchQuery.length < 2 && searchQuery.length > 0 && (
+                <p className="text-center text-gray-500 text-sm py-6">Type at least 2 characters</p>
+              )}
+              {!searchLoading && searchResults.length > 0 && (
+                <>
+                  <p className="px-3 text-xs text-gray-500 mb-2">
+                    {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
+                  </p>
+                  <div className="space-y-0.5">
+                    {searchResults.map((result) => {
+                      // Parse timestamp from comment snippet
+                      const tsMatch = result.type === 'comment' ? result.snippet.match(/^\[([^\]]+)\]/) : null
+                      const tsLabel = tsMatch ? tsMatch[1] : null
+                      const snippetText = tsLabel
+                        ? result.snippet.slice(tsMatch![0].length).trim()
+                        : result.snippet
+
+                      return (
+                        <button
+                          key={`${result.type}-${result.id}`}
+                          onClick={() => handleSearchResultClick(result)}
+                          className="w-full text-left flex items-start gap-2.5 px-3 py-2 hover:bg-gray-800 rounded-lg transition-colors group"
+                        >
+                          <span className="mt-0.5">{searchResultIcon(result.type)}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-sm text-gray-200 group-hover:text-white truncate">
+                                {result.title}
+                              </span>
+                              {tsLabel && (
+                                <span className="text-xs font-mono bg-gray-800 text-blue-300 px-1.5 py-0.5 rounded shrink-0">
+                                  {tsLabel}
+                                </span>
+                              )}
+                              {result.type === 'chapter' && (
+                                <span className="text-xs bg-teal-900/50 text-teal-300 px-1.5 py-0.5 rounded shrink-0">
+                                  Chapter
+                                </span>
+                              )}
+                              {result.type === 'qa' && (
+                                <span className="text-xs bg-amber-900/50 text-amber-300 px-1.5 py-0.5 rounded shrink-0">
+                                  Q&A
+                                </span>
+                              )}
+                            </div>
+                            {snippetText && (
+                              <p className="text-xs text-gray-400 line-clamp-2 mt-0.5">{snippetText}</p>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Queue mode */}
-          {sidebarMode === 'queue' && (
+          {!showSearch && sidebarMode === 'queue' && (
             loading ? (
               <p className="text-center text-gray-500 text-sm py-10">Loading...</p>
             ) : (
@@ -579,7 +825,7 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
           )}
 
           {/* Videos mode */}
-          {sidebarMode === 'videos' && (
+          {!showSearch && sidebarMode === 'videos' && (
             !fullSessionsFetched ? (
               <p className="text-center text-gray-500 text-sm py-10">Loading...</p>
             ) : sessionVideos.length === 0 ? (
@@ -617,7 +863,7 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
           )}
 
           {/* Reference mode */}
-          {sidebarMode === 'reference' && (
+          {!showSearch && sidebarMode === 'reference' && (
             refLoading ? (
               <p className="text-center text-gray-500 text-sm py-10">Loading...</p>
             ) : filteredRefVideos.length === 0 && topRefFolders.length === 0 ? (
@@ -664,14 +910,17 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
           )}
         </div>
 
-        {/* Keyboard shortcuts legend (queue mode only) */}
-        {sidebarMode === 'queue' && (
-          <div className="px-3 py-2 border-t border-gray-800 text-xs text-gray-500 space-y-0.5">
-            <div className="flex justify-between"><span>Navigate</span><span className="font-mono">{'\u2191'} {'\u2193'}</span></div>
-            <div className="flex justify-between"><span>Mark reviewed</span><span className="font-mono">R</span></div>
-            <div className="flex justify-between"><span>Exit</span><span className="font-mono">Esc</span></div>
-          </div>
-        )}
+        {/* Keyboard shortcuts legend */}
+        <div className="px-3 py-2 border-t border-gray-800 text-xs text-gray-500 space-y-0.5">
+          <div className="flex justify-between"><span>Search</span><span className="font-mono">/</span></div>
+          {sidebarMode === 'queue' && (
+            <>
+              <div className="flex justify-between"><span>Navigate</span><span className="font-mono">{'\u2191'} {'\u2193'}</span></div>
+              <div className="flex justify-between"><span>Mark reviewed</span><span className="font-mono">R</span></div>
+            </>
+          )}
+          <div className="flex justify-between"><span>Exit</span><span className="font-mono">Esc</span></div>
+        </div>
       </aside>
 
       {/* -- Right pane: Detail -- */}
