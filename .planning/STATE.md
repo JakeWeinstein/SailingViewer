@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-03-11T02:17:07.765Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-03-11T02:24:38.710Z"
 last_activity: 2026-03-11 — 03-04 Phase 3 end-to-end verification approved
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 15
-  completed_plans: 12
+  completed_plans: 13
   percent: 75
 ---
 
@@ -63,6 +63,7 @@ Progress: [████████████░░░░] 75% (plans: 11 of ~
 | Phase 03-core-content P03 | 7 | 3 tasks | 9 files |
 | Phase 03-core-content P04 | 9 | 2 tasks | 4 files |
 | Phase 04-engagement P01 | 2 | 2 tasks | 11 files |
+| Phase 04-engagement P02 | 4 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,9 @@ Recent decisions affecting current work:
 - [Phase 04-engagement]: Fire-and-forget notification creation (.catch(() => {})) — response never fails due to notification errors
 - [Phase 04-engagement]: mention-utils.ts NOT server-only — supabase client passed as param so parseMentions importable on client for rendering
 - [Phase 04-engagement]: Q&A top-level posts (no video_id AND no parent_id) force send_to_captain=true server-side
+- [Phase 04-engagement]: MentionTextarea uses mousedown for dropdown selection to prevent textarea blur before selection registers
+- [Phase 04-engagement]: users prop optional on all mention-aware components — empty array default degrades gracefully for unauthenticated visitors
+- [Phase 04-engagement]: parseMentions re-exported from comment-utils for single import convenience; ReactMarkdown p/li override for @mention styling in articles
 
 ### Pending Todos
 
@@ -124,6 +128,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T02:17:07.763Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-03-11T02:24:38.708Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
