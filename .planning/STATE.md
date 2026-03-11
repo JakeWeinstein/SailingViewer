@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 Phase: 3 of 5 (Core Content) — COMPLETE
 Plan: 4 of 4 complete in Phase 3
 Status: Phase 3 fully verified — all 13 e2e steps approved by human
-Last activity: 2026-03-11 - Completed quick task 7: Rethink reference library chapter display (consolidated cards with dropdown)
+Last activity: 2026-03-11 - Completed quick task 8: Improve search with full-text matching for reference videos and chapters
 
 Progress: [████████████░░░░] 75% (plans: 11 of ~14 estimated — 3 phases complete)
 
@@ -155,9 +155,10 @@ None yet.
 | 5 | Add browse-all-videos and reference viewing to presentation mode | 2026-03-11 | 5aa359e | [5-add-browse-all-videos-and-reference-vide](./quick/5-add-browse-all-videos-and-reference-vide/) |
 | 6 | Reimagine chapter editing UI (add/edit inline in VideoWatchView) | 2026-03-11 | 83e299c | [6-reimagine-chapter-editing-ui-edit-and-ad](./quick/6-reimagine-chapter-editing-ui-edit-and-ad/) |
 | 7 | Rethink reference library chapter display (consolidated cards) | 2026-03-11 | 1d50c92 | [7-rethink-reference-library-chapter-displa](./quick/7-rethink-reference-library-chapter-displa/) |
+| 8 | Improve search with full-text matching for reference videos and chapters | 2026-03-11 | 8ac4905 | [8-improve-search-with-full-text-matching-a](./quick/8-improve-search-with-full-text-matching-a/) |
 
 ## Session Continuity
 
-Last session: 2026-03-11T20:09:32.000Z
-Stopped at: Completed quick task 7
+Last session: 2026-03-11T20:19:49.000Z
+Stopped at: Completed quick task 8
 Resume file: None
