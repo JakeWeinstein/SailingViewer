@@ -3,33 +3,11 @@ import { getTokenPayload } from '@/lib/auth'
 import { getAuthenticatedYouTube } from '@/lib/youtube-oauth'
 import { supabase } from '@/lib/supabase'
 
-const IMPORT_COOLDOWN_MS = 15 * 60 * 1000 // 15 minutes
-
 export async function POST(req: NextRequest) {
   // Captain-only
   const payload = await getTokenPayload(req)
   if (!payload || payload.role !== 'captain') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
-  // ── Quota protection: enforce 15-minute cooldown ──────────────────────────
-  const { data: lastImportRow } = await supabase
-    .from('app_config')
-    .select('value')
-    .eq('key', 'youtube_last_import')
-    .single()
-
-  if (lastImportRow?.value) {
-    const lastImport = parseInt(lastImportRow.value, 10)
-    const elapsed = Date.now() - lastImport
-    if (elapsed < IMPORT_COOLDOWN_MS) {
-      const remainingSeconds = Math.ceil((IMPORT_COOLDOWN_MS - elapsed) / 1000)
-      const remainingMinutes = Math.ceil(remainingSeconds / 60)
-      return NextResponse.json(
-        { error: `Import cooldown active — try again in ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}` },
-        { status: 429 }
-      )
-    }
   }
 
   try {
@@ -62,11 +40,6 @@ export async function POST(req: NextRequest) {
     const items = playlistRes.data.items ?? []
 
     if (items.length === 0) {
-      // No videos found — update timestamp and return
-      await supabase.from('app_config').upsert(
-        { key: 'youtube_last_import', value: String(Date.now()) },
-        { onConflict: 'key' }
-      )
       return NextResponse.json({ imported: 0, sessions_created: 0, skipped: 0 })
     }
 
@@ -99,10 +72,6 @@ export async function POST(req: NextRequest) {
     const skipped = items.length - newItems.length
 
     if (newItems.length === 0) {
-      await supabase.from('app_config').upsert(
-        { key: 'youtube_last_import', value: String(Date.now()) },
-        { onConflict: 'key' }
-      )
       return NextResponse.json({ imported: 0, sessions_created: 0, skipped })
     }
 
@@ -181,7 +150,6 @@ export async function POST(req: NextRequest) {
       imported += videos.length
     }
 
-    // ── Update last import timestamp ──────────────────────────────────────────
     await supabase.from('app_config').upsert(
       { key: 'youtube_last_import', value: String(Date.now()) },
       { onConflict: 'key' }
