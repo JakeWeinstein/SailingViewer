@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed quick task 6
-last_updated: "2026-03-11T19:13:42.264Z"
-last_activity: "2026-03-11 - Completed quick task 5: Add browse-all-videos and reference viewing to presentation mode"
+stopped_at: Completed quick task 11
+last_updated: "2026-03-11T20:54:11.355Z"
+last_activity: "2026-03-11 - Completed quick task 10: Fix search results not jumping to correct timestamp"
 progress:
   total_phases: 5
   completed_phases: 5
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 Phase: 3 of 5 (Core Content) — COMPLETE
 Plan: 4 of 4 complete in Phase 3
 Status: Phase 3 fully verified — all 13 e2e steps approved by human
-Last activity: 2026-03-11 - Completed quick task 10: Fix search results not jumping to correct timestamp
+Last activity: 2026-03-11 - Completed quick task 11: Add search bar to presentation mode sidebar
 
 Progress: [████████████░░░░] 75% (plans: 11 of ~14 estimated — 3 phases complete)
 
@@ -158,9 +158,10 @@ None yet.
 | 8 | Improve search with full-text matching for reference videos and chapters | 2026-03-11 | 8ac4905 | [8-improve-search-with-full-text-matching-a](./quick/8-improve-search-with-full-text-matching-a/) |
 | 9 | Fix search results not navigating to reference videos | 2026-03-11 | b39a16e | [9-fix-search-results-not-navigating-to-ref](./quick/9-fix-search-results-not-navigating-to-ref/) |
 | 10 | Fix search results not jumping to correct timestamp | 2026-03-11 | cd004d1 | [10-fix-search-results-not-jumping-to-correc](./quick/10-fix-search-results-not-jumping-to-correc/) |
+| 11 | Add search bar to presentation mode sidebar | 2026-03-11 | 0322e85 | [11-add-search-bar-to-presentation-view-that](./quick/11-add-search-bar-to-presentation-view-that/) |
 
 ## Session Continuity
 
-Last session: 2026-03-11T20:41:00.000Z
-Stopped at: Completed quick task 10
+Last session: 2026-03-11T20:54:11.353Z
+Stopped at: Completed quick task 11
 Resume file: None
