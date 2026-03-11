@@ -271,10 +271,7 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
       case 'chapter': {
         switchSidebarMode('reference')
         // Look up the video_ref from refVideos
-        const refId = result.type === 'chapter' ? result.url_hint : result.id
-        const refVideo = refVideos.find((v) =>
-          result.type === 'chapter' ? v.id === refId || v.video_ref === refId : v.id === result.id
-        )
+        const refVideo = refVideos.find((v) => v.id === result.id)
         if (refVideo) {
           setSelectedBrowseVideo({
             youtubeId: refVideo.video_ref,

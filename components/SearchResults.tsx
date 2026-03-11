@@ -160,8 +160,8 @@ export default function SearchResults() {
         // Navigate to reference tab; url_hint is reference video id
         return `/?view=reference&ref=${result.id}`
       case 'chapter':
-        // Navigate to reference tab with parent video; url_hint is parent_video_id
-        return `/?view=reference&ref=${result.url_hint}`
+        // Navigate to reference tab with parent video context and chapter ID
+        return `/?view=reference&ref=${result.url_hint}&chapter=${result.id}`
       case 'comment': {
         // url_hint is "session_id|video_id" pipe-separated
         const [sessionId, videoId] = result.url_hint.split('|')
