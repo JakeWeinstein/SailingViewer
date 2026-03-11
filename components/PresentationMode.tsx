@@ -45,6 +45,7 @@ interface SelectedBrowseVideo {
   title: string
   source: 'session' | 'reference'
   startSeconds?: number
+  refVideoId?: string
 }
 
 interface PresentationModeProps {
@@ -92,7 +93,6 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
   const [refFolders, setRefFolders] = useState<ReferenceFolder[]>([])
   const [refFetched, setRefFetched] = useState(false)
   const [refLoading, setRefLoading] = useState(false)
-  const [refSearch, setRefSearch] = useState('')
 
   // Reply state (review queue)
   const [replyText, setReplyText] = useState('')
@@ -267,10 +267,8 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
         setSelectedBrowseVideo({ youtubeId: result.id, title: result.title, source: 'session' })
         break
       }
-      case 'reference':
-      case 'chapter': {
+      case 'reference': {
         switchSidebarMode('reference')
-        // Look up the video_ref from refVideos
         const refVideo = refVideos.find((v) => v.id === result.id)
         if (refVideo) {
           setSelectedBrowseVideo({
@@ -278,9 +276,27 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
             title: refVideo.title,
             source: 'reference',
             startSeconds: refVideo.start_seconds ?? undefined,
+            refVideoId: refVideo.id,
           })
         } else if (!refFetched) {
-          // Trigger reference data fetch; selection will need manual follow-up
+          setRefFetched(false)
+        }
+        break
+      }
+      case 'chapter': {
+        switchSidebarMode('reference')
+        // url_hint is the parent reference video ID; result.id is the chapter ID
+        const parentRef = refVideos.find((v) => v.id === result.url_hint)
+        const chapter = refVideos.find((v) => v.id === result.id)
+        if (parentRef) {
+          setSelectedBrowseVideo({
+            youtubeId: parentRef.video_ref,
+            title: parentRef.title,
+            source: 'reference',
+            startSeconds: chapter?.start_seconds ?? undefined,
+            refVideoId: parentRef.id,
+          })
+        } else if (!refFetched) {
           setRefFetched(false)
         }
         break
@@ -491,10 +507,8 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
     [refFolders]
   )
   const filteredRefVideos = useMemo(() => {
-    const topLevel = refVideos.filter((v) => !v.parent_video_id)
-    if (!refSearch) return topLevel
-    return topLevel.filter((v) => v.title.toLowerCase().includes(refSearch.toLowerCase()))
-  }, [refVideos, refSearch])
+    return refVideos.filter((v) => !v.parent_video_id)
+  }, [refVideos])
   const getRefVideosInFolder = useCallback(
     (fid: string) => filteredRefVideos.filter((v) => v.folder_id === fid),
     [filteredRefVideos]
@@ -502,6 +516,13 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
   const unfolderedRefVideos = useMemo(
     () => filteredRefVideos.filter((v) => !v.folder_id),
     [filteredRefVideos]
+  )
+  const getChapters = useCallback(
+    (sourceId: string) =>
+      refVideos
+        .filter((v) => v.parent_video_id === sourceId)
+        .sort((a, b) => (a.start_seconds ?? 0) - (b.start_seconds ?? 0)),
+    [refVideos]
   )
 
   // Reference folder section component
@@ -527,26 +548,33 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
             {subFolders.map((sf) => (
               <RefFolderSection key={sf.id} folder={sf} depth={depth + 1} />
             ))}
-            {folderVideos.map((v) => (
-              <button
-                key={v.id}
-                onClick={() => setSelectedBrowseVideo({
-                  youtubeId: v.video_ref,
-                  title: v.title,
-                  source: 'reference',
-                  startSeconds: v.start_seconds ?? undefined,
-                })}
-                className={clsx(
-                  'w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors',
-                  selectedBrowseVideo?.youtubeId === v.video_ref && selectedBrowseVideo?.source === 'reference'
-                    ? 'bg-blue-900/40 ring-1 ring-blue-400 text-blue-300'
-                    : 'text-gray-300 hover:bg-gray-800'
-                )}
-              >
-                <Play className="h-3.5 w-3.5 shrink-0 text-gray-500" />
-                <span className="truncate flex-1">{v.title}</span>
-              </button>
-            ))}
+            {folderVideos.map((v) => {
+              const chapters = getChapters(v.id)
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => setSelectedBrowseVideo({
+                    youtubeId: v.video_ref,
+                    title: v.title,
+                    source: 'reference',
+                    startSeconds: v.start_seconds ?? undefined,
+                    refVideoId: v.id,
+                  })}
+                  className={clsx(
+                    'w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors',
+                    selectedBrowseVideo?.youtubeId === v.video_ref && selectedBrowseVideo?.source === 'reference'
+                      ? 'bg-blue-900/40 ring-1 ring-blue-400 text-blue-300'
+                      : 'text-gray-300 hover:bg-gray-800'
+                  )}
+                >
+                  <Play className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+                  <span className="truncate flex-1">{v.title}</span>
+                  {chapters.length > 0 && (
+                    <span className="text-xs text-gray-500 shrink-0">{chapters.length}ch</span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         )}
       </div>
@@ -701,22 +729,6 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
                 </span>
               )}
             </button>
-          </div>
-        )}
-
-        {/* Reference search (reference mode only) */}
-        {sidebarMode === 'reference' && (
-          <div className="px-3 py-2 border-b border-gray-800">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 pointer-events-none" />
-              <input
-                type="text"
-                value={refSearch}
-                onChange={(e) => setRefSearch(e.target.value)}
-                placeholder="Search reference videos..."
-                className="w-full bg-gray-800 text-sm text-gray-200 placeholder-gray-500 pl-8 pr-3 py-2 rounded-lg border border-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
           </div>
         )}
 
@@ -879,7 +891,9 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
                       <p className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">Unfoldered</p>
                     )}
                     <div className="space-y-0.5">
-                      {unfolderedRefVideos.map((v) => (
+                      {unfolderedRefVideos.map((v) => {
+                        const chapters = getChapters(v.id)
+                        return (
                         <button
                           key={v.id}
                           onClick={() => setSelectedBrowseVideo({
@@ -887,6 +901,7 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
                             title: v.title,
                             source: 'reference',
                             startSeconds: v.start_seconds ?? undefined,
+                            refVideoId: v.id,
                           })}
                           className={clsx(
                             'w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors',
@@ -897,8 +912,12 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
                         >
                           <Play className="h-3.5 w-3.5 shrink-0 text-gray-500" />
                           <span className="truncate flex-1">{v.title}</span>
+                          {chapters.length > 0 && (
+                            <span className="text-xs text-gray-500 shrink-0">{chapters.length}ch</span>
+                          )}
                         </button>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -976,6 +995,31 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
                   title={selectedBrowseVideo.title}
                 />
               </div>
+
+              {/* Chapters for reference videos */}
+              {selectedBrowseVideo.source === 'reference' && selectedBrowseVideo.refVideoId && (() => {
+                const chapters = getChapters(selectedBrowseVideo.refVideoId!)
+                return chapters.length > 0 ? (
+                  <div className="bg-gray-800 rounded-xl p-4 space-y-1">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Chapters</p>
+                    {chapters.map((ch) => (
+                      <button
+                        key={ch.id}
+                        onClick={() => setSelectedBrowseVideo({
+                          ...selectedBrowseVideo,
+                          startSeconds: ch.start_seconds ?? 0,
+                        })}
+                        className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors"
+                      >
+                        <span className="font-mono text-blue-400 shrink-0 text-xs">
+                          {formatTime(ch.start_seconds ?? 0)}
+                        </span>
+                        <span className="truncate">{ch.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null
+              })()}
 
               {/* Comment form for browsed video */}
               <div className="bg-gray-800 rounded-xl p-4 space-y-3">
