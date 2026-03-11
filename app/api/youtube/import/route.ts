@@ -86,9 +86,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const newItems = items.filter(
-      (item) => item.contentDetails?.videoId && !existingIds.has(item.contentDetails.videoId)
-    )
+    const oneYearAgo = new Date()
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
+
+    const newItems = items.filter((item) => {
+      if (!item.contentDetails?.videoId || existingIds.has(item.contentDetails.videoId)) return false
+      const publishedAt = item.snippet?.publishedAt
+      if (publishedAt && new Date(publishedAt) < oneYearAgo) return false
+      return true
+    })
 
     const skipped = items.length - newItems.length
 
