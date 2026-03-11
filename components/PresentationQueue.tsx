@@ -61,8 +61,8 @@ function SortableItem({
       className={clsx(
         'group flex items-start gap-2 px-3 py-2.5 rounded-lg cursor-pointer transition-colors',
         isActive
-          ? 'bg-blue-50 ring-1 ring-blue-300'
-          : 'hover:bg-gray-50'
+          ? 'bg-white ring-1 ring-blue-400'
+          : 'hover:bg-gray-800'
       )}
       onClick={onSelect}
     >
@@ -71,7 +71,7 @@ function SortableItem({
         {...attributes}
         {...listeners}
         aria-label="Drag to reorder"
-        className="mt-0.5 shrink-0 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing"
+        className="mt-0.5 shrink-0 text-gray-600 hover:text-gray-400 cursor-grab active:cursor-grabbing"
         onClick={(e) => e.stopPropagation()}
       >
         <GripVertical className="h-4 w-4" />
@@ -86,15 +86,15 @@ function SortableItem({
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-xs text-gray-700 leading-snug line-clamp-2">{truncated}</p>
+        <p className={clsx('text-xs leading-snug line-clamp-2', isActive ? 'text-gray-900' : 'text-gray-300')}>{truncated}</p>
         <div className="flex items-center gap-1.5 mt-1">
           {!isQA && item.timestamp_seconds != null && (
-            <span className="text-xs font-mono bg-blue-100 text-blue-700 px-1 py-0.5 rounded">
+            <span className={clsx('text-xs font-mono px-1 py-0.5 rounded', isActive ? 'bg-blue-100 text-blue-700' : 'bg-blue-900/50 text-blue-300')}>
               {formatTime(item.timestamp_seconds)}
             </span>
           )}
           {isQA && (
-            <span className="text-xs bg-purple-100 text-purple-700 px-1 py-0.5 rounded">
+            <span className={clsx('text-xs px-1 py-0.5 rounded', isActive ? 'bg-purple-100 text-purple-700' : 'bg-purple-900/50 text-purple-300')}>
               Q&A
             </span>
           )}
@@ -141,7 +141,7 @@ function AuthorGroup({
     <div className="mb-2">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-50 rounded-lg transition-colors"
+        className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-gray-800 rounded-lg transition-colors"
       >
         {open
           ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" />
@@ -155,7 +155,7 @@ function AuthorGroup({
         >
           {initials(author)}
         </div>
-        <span className="text-sm font-semibold text-gray-700 truncate flex-1">{author}</span>
+        <span className="text-sm font-semibold text-gray-200 truncate flex-1">{author}</span>
         <span className="text-xs text-gray-400 shrink-0">{items.length}</span>
       </button>
 
