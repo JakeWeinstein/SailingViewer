@@ -27,11 +27,12 @@ interface BrowseSession {
 
 interface Props {
   isCaptain?: boolean
+  isAuthenticated?: boolean
   userName?: string
   activeSessionId?: string
 }
 
-export default function ReferenceManager({ isCaptain = false, userName = 'Captain', activeSessionId }: Props) {
+export default function ReferenceManager({ isCaptain = false, isAuthenticated = false, userName = 'Captain', activeSessionId }: Props) {
   const [videos, setVideos] = useState<ReferenceVideo[]>([])
   const [folders, setFolders] = useState<ReferenceFolder[]>([])
   const [loading, setLoading] = useState(true)
@@ -542,10 +543,10 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
         {/* Tag display / editor — visible to all logged-in users */}
         <VideoTagEditor video={video} />
 
-        {/* Captain actions */}
-        {isCaptain && (
+        {/* Chapter + delete actions */}
+        {(isCaptain || isAuthenticated) && (
           <div className="px-3 pb-2.5 flex items-center justify-between">
-            {/* Create chapters button — only for non-chapter videos */}
+            {/* Create chapters button — visible to any authenticated user, only for non-chapter videos */}
             {!isChapter && (
               <div className="flex items-center gap-2">
                 <button
@@ -567,13 +568,16 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
               </div>
             )}
             {isChapter && <span />}
-            <button
-              onClick={() => handleDelete(video.id)}
-              className="p-1 rounded-full hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors"
-              title="Remove from library"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
+            {/* Delete — captain only */}
+            {isCaptain && (
+              <button
+                onClick={() => handleDelete(video.id)}
+                className="p-1 rounded-full hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors"
+                title="Remove from library"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         )}
 
@@ -641,7 +645,7 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
                 <span className="text-xs font-medium text-purple-500 whitespace-nowrap">
                   {item.source.title} — {item.chapters.length} chapter{item.chapters.length !== 1 ? 's' : ''}
                 </span>
-                {isCaptain && (
+                {(isCaptain || isAuthenticated) && (
                   <button
                     onClick={() => setChapterSource(item.source)}
                     className="text-xs text-purple-400 hover:text-purple-600 transition-colors whitespace-nowrap"
@@ -1016,7 +1020,14 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
             noteApiPath={isCaptain ? `/api/reference-videos/${watchTarget.id}` : undefined}
             userName={userName}
             isCaptain={isCaptain}
+            isAuthenticated={isAuthenticated || isCaptain}
             onNotesUpdated={isCaptain ? handleNotesUpdated : undefined}
+            onChaptersChanged={() => {
+              // Re-fetch videos to reflect chapter changes
+              fetch('/api/reference-videos').then((r) => r.json()).then((vids) => {
+                if (Array.isArray(vids)) setVideos(vids)
+              })
+            }}
             onClose={() => setWatchTarget(null)}
           />
         )

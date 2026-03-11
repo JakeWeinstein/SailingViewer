@@ -355,6 +355,7 @@ export default function TeamFormPage() {
         {mainView === 'reference' && (
           <ReferenceManager
             isCaptain={false}
+            isAuthenticated={!!authUser}
             userName={userName ?? 'Visitor'}
             activeSessionId={activeSession?.id}
           />
