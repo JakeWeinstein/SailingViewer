@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 Phase: 3 of 5 (Core Content) — COMPLETE
 Plan: 4 of 4 complete in Phase 3
 Status: Phase 3 fully verified — all 13 e2e steps approved by human
-Last activity: 2026-03-11 - Completed quick task 2: Fix presentation view not showing video
+Last activity: 2026-03-11 - Completed quick task 3: Remove deprecated name selection UI
 
 Progress: [████████████░░░░] 75% (plans: 11 of ~14 estimated — 3 phases complete)
 
@@ -150,9 +150,10 @@ None yet.
 |---|-------------|------|--------|-----------|
 | 1 | Fix comments not saving to database | 2026-03-11 | 9755c6f | [1-fix-comments-not-saving-to-database](./quick/1-fix-comments-not-saving-to-database/) |
 | 2 | Fix presentation view not showing video | 2026-03-11 | b4a8bd0 | [2-fix-presentation-view-not-showing-video](./quick/2-fix-presentation-view-not-showing-video/) |
+| 3 | Remove deprecated name selection UI | 2026-03-11 | de123c6 | [3-fix-deprecated-name-selection-ui-on-main](./quick/3-fix-deprecated-name-selection-ui-on-main/) |
 
 ## Session Continuity
 
-Last session: 2026-03-11T18:25:57Z
-Stopped at: Completed quick task 2
+Last session: 2026-03-11T18:36:50Z
+Stopped at: Completed quick task 3
 Resume file: None
