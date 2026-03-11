@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Film, MessageSquare, FileText, HelpCircle, ChevronDown, ChevronUp, AlertCircle, Search, RefreshCw } from 'lucide-react'
+import { Film, MessageSquare, FileText, HelpCircle, BookOpen, ChevronDown, ChevronUp, AlertCircle, Search, RefreshCw } from 'lucide-react'
 import { timeAgo } from '@/lib/comment-utils'
 import clsx from 'clsx'
 
 interface SearchResult {
   id: string
-  type: 'video' | 'comment' | 'article' | 'qa'
+  type: 'video' | 'comment' | 'article' | 'qa' | 'reference' | 'chapter'
   title: string
   snippet: string
   url_hint: string
@@ -16,14 +16,17 @@ interface SearchResult {
   created_at: string
 }
 
+/** Display sections — chapters are merged into the reference section */
+type SectionType = 'video' | 'reference' | 'comment' | 'article' | 'qa'
+
 type ResultSection = {
-  type: SearchResult['type']
+  type: SectionType
   label: string
   icon: React.ReactNode
   results: SearchResult[]
 }
 
-const SECTION_ORDER: SearchResult['type'][] = ['video', 'comment', 'article', 'qa']
+const SECTION_ORDER: SectionType[] = ['video', 'reference', 'comment', 'article', 'qa']
 const DEFAULT_SHOW = 5
 
 function ResultCard({
@@ -35,6 +38,8 @@ function ResultCard({
 }) {
   const iconMap: Record<SearchResult['type'], React.ReactNode> = {
     video: <Film className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />,
+    reference: <BookOpen className="h-4 w-4 text-teal-500 shrink-0 mt-0.5" />,
+    chapter: <BookOpen className="h-4 w-4 text-teal-500 shrink-0 mt-0.5" />,
     comment: <MessageSquare className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />,
     article: <FileText className="h-4 w-4 text-purple-500 shrink-0 mt-0.5" />,
     qa: <HelpCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />,
@@ -62,6 +67,11 @@ function ResultCard({
           {timestampLabel && (
             <span className="text-xs font-mono bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded shrink-0">
               {timestampLabel}
+            </span>
+          )}
+          {result.type === 'chapter' && (
+            <span className="text-xs bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded shrink-0">
+              Chapter
             </span>
           )}
         </div>
@@ -95,7 +105,7 @@ export default function SearchResults() {
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [expandedSections, setExpandedSections] = useState<Set<SearchResult['type']>>(new Set())
+  const [expandedSections, setExpandedSections] = useState<Set<SectionType>>(new Set())
 
   const fetchResults = useCallback(async (query: string) => {
     if (!query.trim()) return
@@ -146,10 +156,21 @@ export default function SearchResults() {
       case 'video':
         // url_hint is session_id; id is video_id
         return `/?session=${result.url_hint}&video=${result.id}`
-      case 'comment':
-        // url_hint is video_id — navigate to home with that video; can't know session without extra fetch
-        // Best effort: navigate to home page; the deep-link handler will resolve session from video
-        return `/?video=${result.url_hint}`
+      case 'reference':
+        // Navigate to reference tab; url_hint is reference video id
+        return `/?view=reference&ref=${result.id}`
+      case 'chapter':
+        // Navigate to reference tab with parent video; url_hint is parent_video_id
+        return `/?view=reference&ref=${result.url_hint}`
+      case 'comment': {
+        // url_hint is "session_id|video_id" pipe-separated
+        const [sessionId, videoId] = result.url_hint.split('|')
+        if (sessionId && videoId) {
+          return `/?session=${sessionId}&video=${videoId}`
+        }
+        // Fallback if only session_id available
+        return sessionId ? `/?session=${sessionId}` : '/'
+      }
       case 'article':
         return `/learn/${result.id}`
       case 'qa':
@@ -159,7 +180,7 @@ export default function SearchResults() {
     }
   }
 
-  function toggleSection(type: SearchResult['type']) {
+  function toggleSection(type: SectionType) {
     setExpandedSections((prev) => {
       const next = new Set(prev)
       next.has(type) ? next.delete(type) : next.add(type)
@@ -167,19 +188,23 @@ export default function SearchResults() {
     })
   }
 
-  const SECTION_CONFIG: Record<SearchResult['type'], { label: string; icon: React.ReactNode }> = {
+  const SECTION_CONFIG: Record<SectionType, { label: string; icon: React.ReactNode }> = {
     video: { label: 'Videos', icon: <Film className="h-4 w-4" /> },
+    reference: { label: 'Reference Library', icon: <BookOpen className="h-4 w-4" /> },
     comment: { label: 'Comments', icon: <MessageSquare className="h-4 w-4" /> },
     article: { label: 'Articles', icon: <FileText className="h-4 w-4" /> },
     qa: { label: 'Q&A', icon: <HelpCircle className="h-4 w-4" /> },
   }
 
+  // Build sections, merging 'chapter' results into the 'reference' section
   const sections: ResultSection[] = SECTION_ORDER
     .map((type) => ({
       type,
       label: SECTION_CONFIG[type].label,
       icon: SECTION_CONFIG[type].icon,
-      results: results.filter((r) => r.type === type),
+      results: type === 'reference'
+        ? results.filter((r) => r.type === 'reference' || r.type === 'chapter')
+        : results.filter((r) => r.type === type),
     }))
     .filter((s) => s.results.length > 0)
 
@@ -262,6 +287,7 @@ export default function SearchResults() {
                 <span className={clsx(
                   'p-1 rounded-md',
                   section.type === 'video' && 'bg-blue-50 text-blue-500',
+                  section.type === 'reference' && 'bg-teal-50 text-teal-500',
                   section.type === 'comment' && 'bg-green-50 text-green-500',
                   section.type === 'article' && 'bg-purple-50 text-purple-500',
                   section.type === 'qa' && 'bg-amber-50 text-amber-500',
