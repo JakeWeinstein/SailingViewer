@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers, Reply } from 'lucide-react'
+import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers, Reply, Edit2 } from 'lucide-react'
 import { parseTimestamp, formatTime, youtubeThumbnailUrl, type SessionVideo, type VideoNote, type ReferenceVideo } from '@/lib/types'
 import { timeAgo, initials, avatarColor } from '@/lib/comment-utils'
 import { onYouTubeReady } from '@/lib/youtube-api'
@@ -46,6 +46,8 @@ interface VideoWatchViewProps {
   sessionId: string
   activeSessionId?: string
   userName: string
+  userId?: string        // current user's ID — used to show edit/delete on own comments
+  userRole?: 'captain' | 'contributor' | 'viewer'
   isCaptain?: boolean
   isFavorited?: boolean
   onFavoriteToggle?: () => void
@@ -64,11 +66,14 @@ interface VideoWatchViewProps {
 }
 
 export default function VideoWatchView({
-  video, sessionId, activeSessionId, userName, isCaptain = false,
+  video, sessionId, activeSessionId, userName, userId, userRole,
+  isCaptain = false,
   isFavorited = false, onFavoriteToggle, onClose, onNotesUpdated, onNoteUpdated,
   mediaId, videoType = 'youtube', noteApiPath, startSeconds,
   siblingChapters, onChapterChange,
 }: VideoWatchViewProps) {
+  // isCaptain can be set via prop or derived from userRole
+  const effectiveCaptain = isCaptain || userRole === 'captain'
   const effectiveVideoId = mediaId ?? video.id
 
   // Whether we are in multi-part mode (chapters have different video_refs)
@@ -224,6 +229,13 @@ export default function VideoWatchView({
   const [loadingReplies, setLoadingReplies] = useState<Set<string>>(new Set())
   const replyInputRef = useRef<HTMLTextAreaElement>(null)
 
+  // Edit/delete state
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
   const backdropRef = useRef<HTMLDivElement>(null)
   const threadRef = useRef<HTMLDivElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
@@ -241,6 +253,26 @@ export default function VideoWatchView({
       .then((data) => { if (Array.isArray(data)) setComments(data) })
       .finally(() => setLoadingComments(false))
   }, [video.id, effectiveVideoId])
+
+  // ── 30-second polling: append new comments without disrupting scroll ──
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/comments?videoId=${effectiveVideoId}`)
+        if (!res.ok) return
+        const fresh: Comment[] = await res.json()
+        if (!Array.isArray(fresh)) return
+        setComments((prev) => {
+          const existingIds = new Set(prev.map((c) => c.id))
+          const newOnes = fresh.filter((c) => !existingIds.has(c.id))
+          if (newOnes.length === 0) return prev
+          return [...prev, ...newOnes]
+        })
+      } catch { /* silent failure on polling errors */ }
+    }
+    const interval = setInterval(poll, 30000)
+    return () => clearInterval(interval)
+  }, [effectiveVideoId])
 
   const parsedTimestamp = parseTimestamp(timestampRaw)
   const timestampInvalid = timestampRaw.trim() !== '' && parsedTimestamp === null
@@ -363,6 +395,54 @@ export default function VideoWatchView({
     } finally {
       setPostingReply(false)
     }
+  }
+
+  // ── Edit comment ──
+  function startEdit(comment: Comment) {
+    setEditingCommentId(comment.id)
+    setEditText(comment.comment_text)
+    setConfirmDeleteId(null)
+  }
+
+  async function saveEdit(commentId: string) {
+    if (!editText.trim()) return
+    setSavingEdit(true)
+    try {
+      const res = await fetch(`/api/comments/${commentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment_text: editText.trim() }),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setComments((prev) => prev.map((c) => c.id === commentId ? { ...c, ...updated, is_edited: true } : c))
+        setEditingCommentId(null)
+        setEditText('')
+      }
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  // ── Delete comment ──
+  async function deleteComment(commentId: string) {
+    setDeletingCommentId(commentId)
+    try {
+      const res = await fetch(`/api/comments/${commentId}`, { method: 'DELETE' })
+      if (res.ok) {
+        setComments((prev) => prev.filter((c) => c.id !== commentId))
+        setConfirmDeleteId(null)
+      }
+    } finally {
+      setDeletingCommentId(null)
+    }
+  }
+
+  // Ownership check: user can edit/delete own comments; captain can edit/delete any
+  function canEditComment(comment: Comment) {
+    if (!userId && !effectiveCaptain) return false
+    const commentAuthorId = (comment as Comment & { author_id?: string }).author_id
+    return effectiveCaptain || (userId != null && commentAuthorId === userId)
   }
 
   async function postComment() {
@@ -495,13 +575,13 @@ export default function VideoWatchView({
           )}
 
           {/* Captain notes section */}
-          {(isCaptain || hasNotes) && (
+          {(effectiveCaptain || hasNotes) && (
             <div className="border-b border-amber-100 bg-amber-50 px-4 py-3 shrink-0 space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-semibold text-amber-700">
                   Captain&apos;s notes {notes.length > 0 && <span className="font-normal text-amber-500">({notes.length})</span>}
                 </p>
-                {isCaptain && !addingNote && (
+                {effectiveCaptain && !addingNote && (
                   <button
                     onClick={() => setAddingNote(true)}
                     className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 transition-colors"
@@ -526,7 +606,7 @@ export default function VideoWatchView({
                         </button>
                       )}
                       <p className="flex-1 text-xs text-amber-800 leading-relaxed">{n.text}</p>
-                      {isCaptain && (
+                      {effectiveCaptain && (
                         <button
                           onClick={() => handleDeleteNote(i)}
                           disabled={savingNote}
@@ -717,8 +797,12 @@ export default function VideoWatchView({
                   const replies = repliesByComment.get(c.id) ?? []
                   const isLoadingRep = loadingReplies.has(c.id)
 
+                  const isEditing = editingCommentId === c.id
+                  const isConfirmingDelete = confirmDeleteId === c.id
+                  const canEdit = canEditComment(c)
+
                   return (
-                    <div key={c.id}>
+                    <div key={c.id} className="border-b border-gray-100 py-3">
                       <div className="flex gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
@@ -730,12 +814,15 @@ export default function VideoWatchView({
                               <button
                                 onClick={() => seekTo(c.timestamp_seconds!)}
                                 title="Jump to this moment"
-                                className="flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-600 text-white text-[10px] font-mono font-bold rounded-full hover:bg-blue-700 active:scale-95 transition-all"
+                                className="flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-mono font-bold rounded-full hover:bg-blue-200 active:scale-95 transition-all cursor-pointer"
                               >
                                 {formatTime(c.timestamp_seconds)}
                               </button>
                             )}
                             <span className="text-[10px] text-gray-400">{timeAgo(c.created_at)}</span>
+                            {c.is_edited && (
+                              <span className="text-gray-400 text-xs italic">edited</span>
+                            )}
                             {c.send_to_captain && (
                               <span className="flex items-center gap-0.5 text-[10px] text-blue-600 bg-blue-50 px-1 py-0.5 rounded-full font-medium">
                                 <Shield className="h-2 w-2" />
@@ -743,7 +830,37 @@ export default function VideoWatchView({
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-700 leading-relaxed">{c.comment_text}</p>
+
+                          {/* Edit inline textarea or comment text */}
+                          {isEditing ? (
+                            <div className="space-y-1.5 mt-1">
+                              <textarea
+                                value={editText}
+                                onChange={(e) => setEditText(e.target.value)}
+                                rows={2}
+                                autoFocus
+                                className="w-full px-2 py-1 border border-blue-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                              />
+                              <div className="flex gap-1.5">
+                                <button
+                                  onClick={() => saveEdit(c.id)}
+                                  disabled={savingEdit || !editText.trim()}
+                                  className="flex items-center gap-1 px-2 py-1 bg-blue-600 text-white text-[10px] font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                >
+                                  <Check className="h-2.5 w-2.5" />
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => { setEditingCommentId(null); setEditText('') }}
+                                  className="px-2 py-1 text-[10px] text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-gray-700 leading-relaxed">{c.comment_text}</p>
+                          )}
 
                           <div className="flex items-center gap-2 mt-1">
                             <button
@@ -756,11 +873,48 @@ export default function VideoWatchView({
                             {replyCount > 0 && (
                               <button
                                 onClick={() => toggleReplies(c.id)}
-                                className="flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
+                                className="flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-gray-600 transition-colors text-sm text-gray-500 hover:text-gray-700 cursor-pointer"
                               >
                                 {isRepliesOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                                 {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
                               </button>
+                            )}
+                            {/* Edit / Delete — own comments only */}
+                            {canEdit && !isEditing && (
+                              <>
+                                <button
+                                  onClick={() => startEdit(c)}
+                                  title="Edit comment"
+                                  className="flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-blue-600 transition-colors"
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                </button>
+                                {isConfirmingDelete ? (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => deleteComment(c.id)}
+                                      disabled={deletingCommentId === c.id}
+                                      className="text-[10px] text-red-600 font-medium hover:text-red-800 transition-colors"
+                                    >
+                                      Confirm
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmDeleteId(null)}
+                                      className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setConfirmDeleteId(c.id)}
+                                    title="Delete comment"
+                                    className="flex items-center gap-0.5 text-[10px] text-gray-400 hover:text-red-500 transition-colors"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
