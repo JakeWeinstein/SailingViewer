@@ -75,87 +75,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ imported: 0, sessions_created: 0, skipped })
     }
 
-    // ── Group new videos by publish date ──────────────────────────────────────
-    // Session label format: "Practice - MMM D, YYYY"
-    const byDate = new Map<string, Array<{ videoId: string; title: string }>>()
+    // ── Find the active session ───────────────────────────────────────────────
+    const { data: activeSession } = await supabase
+      .from('sessions')
+      .select('id, videos')
+      .eq('is_active', true)
+      .single()
 
-    for (const item of newItems) {
-      const videoId = item.contentDetails?.videoId!
-      const title = item.snippet?.title ?? 'Untitled'
-      const publishedAt = item.snippet?.publishedAt ?? new Date().toISOString()
-      const date = new Date(publishedAt)
-      const label = `Practice - ${date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })}`
-
-      if (!byDate.has(label)) byDate.set(label, [])
-      byDate.get(label)!.push({ videoId, title })
+    if (!activeSession) {
+      return NextResponse.json(
+        { error: 'No active session — create one first' },
+        { status: 400 }
+      )
     }
 
-    // ── Create sessions + append to sessions.videos JSONB ─────────────────────
-    let imported = 0
-    let sessionsCreated = 0
+    // ── Append all new videos to active session ─────────────────────────────
+    const currentVideos = (activeSession.videos as Array<{ id: string; name: string }>) ?? []
+    const newVideos = newItems.map((item) => ({
+      id: item.contentDetails!.videoId!,
+      name: item.snippet?.title ?? 'Untitled',
+    }))
 
-    for (const [label, videos] of byDate) {
-      // Check if a session with this label already exists
-      const { data: existingSession } = await supabase
-        .from('sessions')
-        .select('id, videos')
-        .eq('label', label)
-        .single()
+    const updatedVideos = [...currentVideos, ...newVideos]
 
-      let sessionId: string
-      let currentVideos: Array<{ id: string; name: string; note?: string; noteTimestamp?: number }> = []
+    const { error: updateError } = await supabase
+      .from('sessions')
+      .update({ videos: updatedVideos })
+      .eq('id', activeSession.id)
 
-      if (existingSession) {
-        sessionId = existingSession.id
-        currentVideos = (existingSession.videos as typeof currentVideos) ?? []
-      } else {
-        // Create new session (not active by default)
-        const { data: newSession, error: sessionError } = await supabase
-          .from('sessions')
-          .insert({ label, videos: [], is_active: false })
-          .select('id')
-          .single()
-
-        if (sessionError || !newSession) {
-          console.error('[youtube/import] Failed to create session:', sessionError)
-          continue
-        }
-
-        sessionId = newSession.id
-        sessionsCreated++
-      }
-
-      // Append new videos to JSONB array
-      const newVideos = videos.map((v) => ({
-        id: v.videoId,
-        name: v.title,
-      }))
-
-      const updatedVideos = [...currentVideos, ...newVideos]
-
-      const { error: updateError } = await supabase
-        .from('sessions')
-        .update({ videos: updatedVideos })
-        .eq('id', sessionId)
-
-      if (updateError) {
-        console.error('[youtube/import] Failed to update session videos:', updateError)
-        continue
-      }
-
-      imported += videos.length
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
-    await supabase.from('app_config').upsert(
-      { key: 'youtube_last_import', value: String(Date.now()) },
-      { onConflict: 'key' }
-    )
-
-    return NextResponse.json({ imported, sessions_created: sessionsCreated, skipped })
+    return NextResponse.json({ imported: newVideos.length, skipped })
   } catch (err: unknown) {
     // Handle expired OAuth tokens (user must re-authorize)
     const message = err instanceof Error ? err.message : String(err)
