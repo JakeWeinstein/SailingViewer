@@ -30,9 +30,11 @@ interface Props {
   isAuthenticated?: boolean
   userName?: string
   activeSessionId?: string
+  initialVideoId?: string | null
+  onInitialVideoHandled?: () => void
 }
 
-export default function ReferenceManager({ isCaptain = false, isAuthenticated = false, userName = 'Captain', activeSessionId }: Props) {
+export default function ReferenceManager({ isCaptain = false, isAuthenticated = false, userName = 'Captain', activeSessionId, initialVideoId, onInitialVideoHandled }: Props) {
   const [videos, setVideos] = useState<ReferenceVideo[]>([])
   const [folders, setFolders] = useState<ReferenceFolder[]>([])
   const [loading, setLoading] = useState(true)
@@ -108,6 +110,16 @@ export default function ReferenceManager({ isCaptain = false, isAuthenticated = 
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setVideos(data) })
   }, [activeFilterTags])
+
+  // Deep-link: auto-open a video when initialVideoId is provided
+  useEffect(() => {
+    if (!initialVideoId || loading) return
+    const match = videos.find((v) => v.id === initialVideoId)
+    if (match) {
+      setWatchTarget(match)
+    }
+    onInitialVideoHandled?.()
+  }, [initialVideoId, loading, videos, onInitialVideoHandled])
 
   // Tag autocomplete: filter allTags by current input
   useEffect(() => {

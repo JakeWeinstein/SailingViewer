@@ -52,6 +52,7 @@ export default function TeamFormPage() {
   const [mainView, setMainView] = useState<MainView>('sessions')
   const [filter, setFilter] = useState<Filter>('all')
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
+  const [initialRefId, setInitialRefId] = useState<string | null>(null)
 
   // Auth state for login/dashboard button
   const [authUser, setAuthUser] = useState<{ role: string; userName?: string } | null | undefined>(undefined)
@@ -104,6 +105,14 @@ export default function TeamFormPage() {
 
     if (viewParam === 'qa') {
       setMainView('qa')
+    } else if (viewParam === 'reference') {
+      setMainView('reference')
+      const refParam = params.get('ref')
+      if (refParam) {
+        setInitialRefId(refParam)
+      }
+    } else if (viewParam === 'learn') {
+      setMainView('learn')
     }
 
     if (videoParam && sessionParam) {
@@ -358,6 +367,8 @@ export default function TeamFormPage() {
             isAuthenticated={!!authUser}
             userName={userName ?? 'Visitor'}
             activeSessionId={activeSession?.id}
+            initialVideoId={initialRefId}
+            onInitialVideoHandled={() => setInitialRefId(null)}
           />
         )}
 
