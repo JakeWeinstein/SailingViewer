@@ -33,13 +33,13 @@
 
 ### Review & Presentation
 
-- [ ] **REV-01**: Captain can view review queue of all flagged comments and Q&A posts
+- [x] **REV-01**: Captain can view review queue of all flagged comments and Q&A posts
 - [ ] **REV-02**: Captain can filter/group review queue by individual sailor
 - [ ] **REV-03**: Captain can respond to flagged comments and Q&A items
 - [ ] **REV-04**: Presentation mode displays review queue on big screen, grouped by person
-- [ ] **REV-05**: Captain can reorder items in the presentation queue
+- [x] **REV-05**: Captain can reorder items in the presentation queue
 - [ ] **REV-06**: Captain can pull up reference videos during presentation mode
-- [ ] **REV-07**: Captain can mark review items as "reviewed" to clear from active queue
+- [x] **REV-07**: Captain can mark review items as "reviewed" to clear from active queue
 
 ### Q&A
 
@@ -56,7 +56,7 @@
 - [x] **CONT-05**: Anyone logged in can add chapters to reference videos
 - [x] **CONT-06**: Block-based article editor with text and video embed blocks
 - [x] **CONT-07**: Articles have published/draft visibility
-- [ ] **CONT-08**: Full-text search across videos, comments, articles, and Q&A
+- [x] **CONT-08**: Full-text search across videos, comments, articles, and Q&A
 
 ### Infrastructure
 
@@ -130,14 +130,14 @@
 | COMM-04 | Phase 4 | Complete |
 | COMM-05 | Phase 4 | Complete |
 | VID-06 | Phase 4 | Complete |
-| REV-01 | Phase 5 | Pending |
+| REV-01 | Phase 5 | Complete |
 | REV-02 | Phase 5 | Pending |
 | REV-03 | Phase 5 | Pending |
 | REV-04 | Phase 5 | Pending |
-| REV-05 | Phase 5 | Pending |
+| REV-05 | Phase 5 | Complete |
 | REV-06 | Phase 5 | Pending |
-| REV-07 | Phase 5 | Pending |
-| CONT-08 | Phase 5 | Pending |
+| REV-07 | Phase 5 | Complete |
+| CONT-08 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 39 total

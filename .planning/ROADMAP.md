@@ -95,7 +95,7 @@ Plans:
   3. The captain can mark an item as "reviewed" and it disappears from the active queue but remains accessible in an archived view
   4. During presentation mode, the captain can open a reference video in a side panel without leaving the queue
   5. Any user can type a search query and see results across videos, comments, articles, and Q&A posts ranked by relevance
-**Plans:** 5 plans
+**Plans:** 2/5 plans executed
 Plans:
 - [ ] 05-00-PLAN.md — Wave 0 test stubs for all Phase 5 requirements
 - [ ] 05-01-PLAN.md — Schema migration (is_reviewed, sort_order), search RPC, review/reorder/search API routes, carry-forward fix
@@ -114,4 +114,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Video Playback | 4/4 | Complete   | 2026-03-10 |
 | 3. Core Content | 4/4 | Complete   | 2026-03-11 |
 | 4. Engagement | 3/4 | In Progress|  |
-| 5. Presentation and Search | 0/5 | Not started | - |
+| 5. Presentation and Search | 2/5 | In Progress|  |

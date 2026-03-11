@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 05-presentation-and-search-00-PLAN.md
-last_updated: "2026-03-11T03:32:50.695Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-03-11T03:37:22.594Z"
 last_activity: 2026-03-11 — 03-04 Phase 3 end-to-end verification approved
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 20
-  completed_plans: 16
+  completed_plans: 17
   percent: 75
 ---
 
@@ -66,6 +66,7 @@ Progress: [████████████░░░░] 75% (plans: 11 of ~
 | Phase 04-engagement P02 | 4 | 2 tasks | 7 files |
 | Phase 04-engagement P03 | 6 | 2 tasks | 6 files |
 | Phase 05-presentation-and-search P00 | 5 | 2 tasks | 6 files |
+| Phase 05-presentation-and-search P01 | 22 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -121,6 +122,9 @@ Recent decisions affecting current work:
 - [Phase 04-engagement]: NotificationBell polls GET /api/notifications every 30s only while dropdown is open — avoids constant background traffic
 - [Phase 04-engagement]: Users API non-captain path maps to minimal {id, username, display_name} fields — no sensitive fields (role, is_active) exposed
 - [Phase 05-presentation-and-search]: REV-01 filter stubs appended to existing route.test.ts — review-queue filtering co-located with the GET handler under test
+- [Phase 05-presentation-and-search]: Dual-schema dispatch in PATCH /api/comments/[id]: EditCommentSchema first, ReviewCommentSchema second — preserves edit flow while adding captain review path
+- [Phase 05-presentation-and-search]: search_all RPC uses lateral jsonb subquery for article snippets to extract clean text from blocks (avoids raw JSON noise)
+- [Phase 05-presentation-and-search]: Carry-forward adds .eq('is_reviewed', false) filter and resets sort_order=null — only unreviewed items move to new session
 
 ### Pending Todos
 
@@ -133,6 +137,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T03:32:50.693Z
-Stopped at: Completed 05-presentation-and-search-00-PLAN.md
+Last session: 2026-03-11T03:37:22.592Z
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
