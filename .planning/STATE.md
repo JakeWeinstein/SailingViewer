@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 Phase: 3 of 5 (Core Content) — COMPLETE
 Plan: 4 of 4 complete in Phase 3
 Status: Phase 3 fully verified — all 13 e2e steps approved by human
-Last activity: 2026-03-11 — 03-04 Phase 3 end-to-end verification approved
+Last activity: 2026-03-11 - Completed quick task 1: Fix comments not saving to database
 
 Progress: [████████████░░░░] 75% (plans: 11 of ~14 estimated — 3 phases complete)
 
@@ -143,6 +143,12 @@ None yet.
 
 - [Phase 2]: iOS Safari Drive embed failures are outside app control — must test on a real device before phase sign-off; fallback UX required
 - [Phase 5]: Presentation mode drag-reorder + sailor grouping interaction design is novel — validate with captain before Phase 5 planning
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 1 | Fix comments not saving to database | 2026-03-11 | 9755c6f | [1-fix-comments-not-saving-to-database](./quick/1-fix-comments-not-saving-to-database/) |
 
 ## Session Continuity
 
