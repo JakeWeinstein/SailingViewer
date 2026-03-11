@@ -159,7 +159,7 @@ None yet.
 | 9 | Fix search results not navigating to reference videos | 2026-03-11 | b39a16e | [9-fix-search-results-not-navigating-to-ref](./quick/9-fix-search-results-not-navigating-to-ref/) |
 | 10 | Fix search results not jumping to correct timestamp | 2026-03-11 | cd004d1 | [10-fix-search-results-not-jumping-to-correc](./quick/10-fix-search-results-not-jumping-to-correc/) |
 | 11 | Add search bar to presentation mode sidebar | 2026-03-11 | 0322e85 | [11-add-search-bar-to-presentation-view-that](./quick/11-add-search-bar-to-presentation-view-that/) |
-| 12 | Fix search result navigation for chapters | 2026-03-11 | 969f325 | [12-fix-search-result-navigation-chapters-no](./quick/12-fix-search-result-navigation-chapters-no/) |
+| 12 | Fix search result navigation: chapters not selecting correct chapter, comments going to homepage | 2026-03-11 | 3af8770 | [12-fix-search-result-navigation-chapters-no](./quick/12-fix-search-result-navigation-chapters-no/) |
 
 ## Session Continuity
 
