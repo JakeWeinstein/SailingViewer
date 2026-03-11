@@ -14,11 +14,14 @@ import VideoUploader from './VideoUploader'
 import ArticleEditor from './ArticleEditor'
 import TeamManager from './TeamManager'
 import ProfileEditor from './ProfileEditor'
+import NotificationBell from './NotificationBell'
 import type { Session, Comment } from '@/lib/types'
 import type { SessionVideo, VideoNote, Article, ReferenceFolder } from '@/lib/types'
 import { youtubeThumbnailUrl } from '@/lib/types'
 import clsx from 'clsx'
 import Link from 'next/link'
+
+interface MentionUser { id: string; username: string; displayName: string }
 
 type SidebarView = 'session' | 'reference' | 'upload' | 'articles' | 'team' | 'profile' | 'youtube'
 type MainTab = 'review' | 'videos'
@@ -77,6 +80,9 @@ export default function DashboardView({ initialSessions, userRole, userName, use
   const [addingVideo, setAddingVideo] = useState(false)
   const [addVideoError, setAddVideoError] = useState<string | null>(null)
 
+  // @mention users list (fetched once on mount)
+  const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([])
+
   // YouTube state (captain-only)
   const [youtubeConnected, setYoutubeConnected] = useState<boolean | null>(null)
   const [youtubeChannelId, setYoutubeChannelId] = useState<string | null>(null)
@@ -121,6 +127,22 @@ export default function DashboardView({ initialSessions, userRole, userName, use
       }).finally(() => setArticlesLoading(false))
     }
   }, [sidebarView, articles.length])
+
+  // Fetch users list for @mention autocomplete (dashboard is always authenticated)
+  useEffect(() => {
+    fetch('/api/users')
+      .then((r) => r.ok ? r.json() : [])
+      .then((users) => {
+        if (Array.isArray(users)) {
+          setMentionUsers(users.map((u: { id: string; username: string; display_name: string }) => ({
+            id: u.id,
+            username: u.username,
+            displayName: u.display_name,
+          })))
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Fetch YouTube connection status on mount (captain only)
   useEffect(() => {
@@ -359,10 +381,15 @@ export default function DashboardView({ initialSessions, userRole, userName, use
       {/* ── Sidebar ── */}
       <aside className="w-60 bg-white border-r border-gray-100 flex flex-col shrink-0">
         <div className="px-4 py-4 border-b border-gray-100">
-          <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Telltale</p>
-          <p className="text-sm font-semibold text-gray-700 mt-0.5 truncate">
-            {isCaptain ? 'Captain' : userName}
-          </p>
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Telltale</p>
+              <p className="text-sm font-semibold text-gray-700 mt-0.5 truncate">
+                {isCaptain ? 'Captain' : userName}
+              </p>
+            </div>
+            <NotificationBell />
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto py-3">
@@ -544,6 +571,7 @@ export default function DashboardView({ initialSessions, userRole, userName, use
                 article={editingArticle === 'new' ? null : editingArticle}
                 userName={userName}
                 folders={articleFolders}
+                users={mentionUsers}
                 onSaved={(saved) => {
                   setArticles((prev) => {
                     const exists = prev.find((a) => a.id === saved.id)

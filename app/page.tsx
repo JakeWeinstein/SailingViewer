@@ -7,10 +7,13 @@ import VideoWatchView from '@/components/VideoWatchView'
 import ReferenceManager from '@/components/ReferenceManager'
 import ArticleViewer from '@/components/ArticleViewer'
 import QATab from '@/components/QATab'
+import NotificationBell from '@/components/NotificationBell'
 import { youtubeThumbnailUrl, type SessionVideo, type Article } from '@/lib/types'
 import type { Comment } from '@/lib/types'
 import clsx from 'clsx'
 import Link from 'next/link'
+
+interface MentionUser { id: string; username: string; displayName: string }
 
 interface BrowseSession {
   id: string
@@ -53,6 +56,7 @@ export default function TeamFormPage() {
 
   // Auth state for login/dashboard button
   const [authUser, setAuthUser] = useState<{ role: string; userName?: string } | null | undefined>(undefined)
+  const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([])
 
   // Learn
   const [articles, setArticles] = useState<Article[]>([])
@@ -67,8 +71,62 @@ export default function TeamFormPage() {
     // Check if user is already authenticated
     fetch('/api/auth/me')
       .then((r) => r.ok ? r.json() : null)
-      .then((data) => setAuthUser(data ?? null))
+      .then((data) => {
+        const user = data ?? null
+        setAuthUser(user)
+        if (user) {
+          // Fetch users list for @mention autocomplete
+          fetch('/api/users')
+            .then((r) => r.ok ? r.json() : [])
+            .then((users) => {
+              if (Array.isArray(users)) {
+                setMentionUsers(users.map((u: { id: string; username: string; display_name: string }) => ({
+                  id: u.id,
+                  username: u.username,
+                  displayName: u.display_name,
+                })))
+              }
+            })
+            .catch(() => {})
+        }
+      })
       .catch(() => setAuthUser(null))
+  }, [])
+
+  // Deep-link handling: read URL params on mount and navigate to content
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const videoParam = params.get('video')
+    const sessionParam = params.get('session')
+    const viewParam = params.get('view')
+
+    if (viewParam === 'qa') {
+      setMainView('qa')
+    }
+
+    if (videoParam && sessionParam) {
+      // Will be resolved once sessions are loaded
+      const checkAndOpen = () => {
+        setSessions((prev) => {
+          const targetSession = prev.find((s) => s.id === sessionParam)
+          if (targetSession) {
+            const targetVideo = targetSession.videos.find((v) => v.id === videoParam)
+            if (targetVideo) {
+              setWatchTarget({ video: targetVideo, sessionId: sessionParam })
+            }
+          }
+          return prev
+        })
+      }
+      // Delay slightly to allow sessions to load
+      setTimeout(checkAndOpen, 500)
+    }
+
+    // Clear URL params to prevent re-triggering on refresh
+    if (params.toString()) {
+      window.history.replaceState({}, '', '/')
+    }
   }, [])
 
   useEffect(() => {
@@ -257,6 +315,7 @@ export default function TeamFormPage() {
               <ChevronDown className="h-3 w-3" />
             </button>
           )}
+          {authUser && <NotificationBell />}
           {authUser !== undefined && (
             authUser ? (
               <Link
@@ -372,7 +431,7 @@ export default function TeamFormPage() {
 
         {/* ── Q&A ── */}
         {mainView === 'qa' && userName && (
-          <QATab userName={userName} />
+          <QATab userName={userName} users={mentionUsers} />
         )}
 
         {mainView === 'sessions' && loading && (
@@ -516,6 +575,7 @@ export default function TeamFormPage() {
           onFavoriteToggle={() => toggleFavorite(watchTarget.video.id)}
           onNoteUpdated={handleNoteUpdated}
           onClose={() => setWatchTarget(null)}
+          users={mentionUsers}
         />
       )}
     </div>

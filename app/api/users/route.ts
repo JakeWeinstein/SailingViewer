@@ -4,11 +4,12 @@ import { supabase } from '@/lib/supabase'
 import { UpdateProfileSchema } from '@/lib/schemas/users'
 import bcrypt from 'bcryptjs'
 
-// GET /api/users — captain-only: list all users
+// GET /api/users
+// Captain: full details (id, username, display_name, role, is_active, is_seed, last_login_at, created_at)
+// Any authenticated user: basic fields (id, username, display_name) for @mention autocomplete
 export async function GET(req: NextRequest) {
   const payload = await getTokenPayload(req)
   if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (payload.role !== 'captain') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { data, error } = await supabase
     .from('users')
@@ -16,6 +17,16 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (payload.role !== 'captain') {
+    // Non-captains get only basic fields for @mention use
+    const basic = (data ?? []).map((row) => ({
+      id: row.id,
+      username: row.username,
+      display_name: row.display_name,
+    }))
+    return NextResponse.json(basic)
+  }
 
   return NextResponse.json(data ?? [])
 }

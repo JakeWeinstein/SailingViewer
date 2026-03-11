@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers, Reply, Edit2 } from 'lucide-react'
 import { parseTimestamp, formatTime, youtubeThumbnailUrl, type SessionVideo, type VideoNote, type ReferenceVideo } from '@/lib/types'
-import { timeAgo, initials, avatarColor } from '@/lib/comment-utils'
+import { timeAgo, initials, avatarColor, parseMentions } from '@/lib/comment-utils'
 import { onYouTubeReady } from '@/lib/youtube-api'
 import type { Comment } from '@/lib/types'
+import MentionTextarea, { type MentionUser } from '@/components/MentionTextarea'
 import clsx from 'clsx'
 
 /* ── YouTube IFrame API type declarations ── */
@@ -63,6 +64,8 @@ interface VideoWatchViewProps {
   onChapterChange?: (chapter: ReferenceVideo) => void  // switch watchTarget to a different chapter
   // Legacy callback (kept for callers that haven't migrated)
   onNoteUpdated?: (videoId: string, note: string, noteTimestamp?: number) => void
+  // @mention autocomplete data
+  users?: MentionUser[]
 }
 
 export default function VideoWatchView({
@@ -70,7 +73,7 @@ export default function VideoWatchView({
   isCaptain = false,
   isFavorited = false, onFavoriteToggle, onClose, onNotesUpdated, onNoteUpdated,
   mediaId, videoType = 'youtube', noteApiPath, startSeconds,
-  siblingChapters, onChapterChange,
+  siblingChapters, onChapterChange, users = [],
 }: VideoWatchViewProps) {
   // isCaptain can be set via prop or derived from userRole
   const effectiveCaptain = isCaptain || userRole === 'captain'
@@ -725,15 +728,16 @@ export default function VideoWatchView({
                   <span className="text-xs font-medium text-gray-600">{userName}</span>
                 </div>
 
-                <textarea
+                <MentionTextarea
                   ref={composerRef}
                   value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
+                  onChange={setCommentText}
                   onFocus={handleCommentFocus}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postComment() }}
+                  users={users}
                   rows={2}
                   placeholder="Leave a comment... (Cmd+Enter to post)"
                   className="w-full px-3 py-1.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postComment() }}
                 />
 
                 <div className="flex items-center gap-2">
@@ -859,7 +863,15 @@ export default function VideoWatchView({
                               </div>
                             </div>
                           ) : (
-                            <p className="text-xs text-gray-700 leading-relaxed">{c.comment_text}</p>
+                            <p className="text-xs text-gray-700 leading-relaxed">
+                              {parseMentions(c.comment_text).map((seg, i) =>
+                                seg.type === 'mention' ? (
+                                  <strong key={i} className="text-blue-600 font-semibold">{seg.value}</strong>
+                                ) : (
+                                  <span key={i}>{seg.value}</span>
+                                )
+                              )}
+                            </p>
                           )}
 
                           <div className="flex items-center gap-2 mt-1">
@@ -942,14 +954,15 @@ export default function VideoWatchView({
 
                       {replyingTo === c.id && (
                         <div className="ml-6 pl-3 border-l-2 border-blue-200 mt-2 space-y-1.5">
-                          <textarea
+                          <MentionTextarea
                             ref={replyInputRef}
                             value={replyText}
-                            onChange={(e) => setReplyText(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postReply(c.id) }}
+                            onChange={setReplyText}
+                            users={users}
                             rows={2}
                             placeholder="Write a reply..."
                             className="w-full px-2 py-1 border border-gray-200 rounded-lg text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) postReply(c.id) }}
                           />
                           <div className="flex gap-1.5">
                             <button
