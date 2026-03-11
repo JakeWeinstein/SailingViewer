@@ -78,7 +78,12 @@ Plans:
   2. A user @mentioned in a comment or Q&A reply receives an in-app notification that links directly to the comment or post
   3. The notification bell displays an unread badge count and the count clears when notifications are viewed
   4. A team member can bookmark a specific timestamp in a video and return to their saved bookmarks list from their profile
-**Plans**: TBD
+**Plans:** 4 plans
+Plans:
+- [ ] 04-01-PLAN.md — DB migration, Zod schemas, API routes (notifications, bookmarks, comments extension)
+- [ ] 04-02-PLAN.md — MentionTextarea component, Q&A YouTube attachment, @mention rendering
+- [ ] 04-03-PLAN.md — NotificationBell, bookmark button + profile list, deep-links, users list wiring
+- [ ] 04-04-PLAN.md — End-to-end verification checkpoint
 
 ### Phase 5: Presentation and Search
 **Goal**: The captain can run a theory session on a big screen — walking through flagged items grouped by sailor, reordering on the fly, pulling up reference videos — and any user can search across the entire platform
@@ -102,5 +107,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Foundation | 3/3 | Complete   | 2026-03-10 |
 | 2. Video Playback | 4/4 | Complete   | 2026-03-10 |
 | 3. Core Content | 4/4 | Complete   | 2026-03-11 |
-| 4. Engagement | 0/TBD | Not started | - |
+| 4. Engagement | 0/4 | In progress | - |
 | 5. Presentation and Search | 0/TBD | Not started | - |
