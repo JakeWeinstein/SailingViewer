@@ -130,12 +130,21 @@ export type ArticleBlock =
   | {
       type: 'video'
       // Self-contained video info (preferred):
-      videoType?: 'drive' | 'youtube'
+      videoType?: 'youtube'   // 'drive' removed — YouTube-only per Phase 2 decision
       videoRef?: string
       title?: string
       startSeconds?: number
       // Legacy: look up from reference_videos table:
       referenceVideoId?: string
+      caption?: string
+    }
+  | { type: 'image'; url: string; alt?: string; caption?: string }
+  | {
+      type: 'clip'
+      videoRef: string        // YouTube video ID
+      title?: string
+      startSeconds: number
+      endSeconds?: number     // Optional end time
       caption?: string
     }
 
