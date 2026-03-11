@@ -166,7 +166,12 @@ export default function SearchResults() {
         // url_hint is "session_id|video_id" pipe-separated
         const [sessionId, videoId] = result.url_hint.split('|')
         if (sessionId && videoId) {
-          return `/?session=${sessionId}&video=${videoId}`
+          // Parse timestamp from snippet prefix like "[1:30] comment text"
+          const tsMatch = result.snippet.match(/^\[(\d+):(\d{2})\]/)
+          const seconds = tsMatch ? parseInt(tsMatch[1], 10) * 60 + parseInt(tsMatch[2], 10) : null
+          return seconds !== null
+            ? `/?session=${sessionId}&video=${videoId}&t=${seconds}`
+            : `/?session=${sessionId}&video=${videoId}`
         }
         // Fallback if only session_id available
         return sessionId ? `/?session=${sessionId}` : '/'
