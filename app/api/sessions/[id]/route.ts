@@ -157,33 +157,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Invalid YouTube URL' }, { status: 400 })
     }
 
-    // Get current position count for this session
-    const { data: existingVideos } = await supabase
-      .from('session_videos')
-      .select('position')
-      .eq('session_id', id)
-      .order('position', { ascending: false })
-      .limit(1)
+    // Get current session videos JSONB
+    const { data: session, error: fetchErr } = await supabase
+      .from('sessions')
+      .select('videos')
+      .eq('id', id)
+      .single()
 
-    const position = Array.isArray(existingVideos) && existingVideos.length > 0
-      ? (existingVideos[0].position ?? 0) + 1
-      : 0
+    if (fetchErr || !session) {
+      return NextResponse.json({ error: fetchErr?.message ?? 'Session not found' }, { status: fetchErr ? 500 : 404 })
+    }
 
-    const { data: newVideo, error: insertError } = await supabase
-      .from('session_videos')
-      .insert({
-        session_id: id,
-        youtube_video_id: ytInfo.id,
-        title: ytInfo.id, // Will be updated by caller or left as video ID
-        position,
-        note: null,
-        note_timestamp: ytInfo.startSeconds ?? null,
-      })
+    const currentVideos = (session.videos as SessionVideo[]) ?? []
+
+    // Check for duplicate
+    if (currentVideos.some((v) => v.id === ytInfo.id)) {
+      return NextResponse.json({ error: 'Video already in session' }, { status: 409 })
+    }
+
+    const newVideo: SessionVideo = {
+      id: ytInfo.id,
+      name: ytInfo.id, // Will be updated by caller or left as video ID
+    }
+
+    const updatedVideos = [...currentVideos, newVideo]
+
+    const { data: updated, error: updateErr } = await supabase
+      .from('sessions')
+      .update({ videos: updatedVideos })
+      .eq('id', id)
       .select()
       .single()
 
-    if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 })
+    if (updateErr) {
+      return NextResponse.json({ error: updateErr.message }, { status: 500 })
     }
 
     return NextResponse.json(newVideo, { status: 201 })

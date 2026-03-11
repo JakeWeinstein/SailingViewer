@@ -70,17 +70,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ imported: 0, sessions_created: 0, skipped: 0 })
     }
 
-    // ── Deduplication: find which video IDs are already in the DB ────────────
+    // ── Deduplication: collect all video IDs already in sessions.videos JSONB ─
     const playlistVideoIds = items
       .map((item) => item.contentDetails?.videoId)
       .filter((id): id is string => Boolean(id))
 
-    const { data: existing } = await supabase
-      .from('session_videos')
-      .select('youtube_video_id')
-      .in('youtube_video_id', playlistVideoIds)
+    const { data: allSessions } = await supabase
+      .from('sessions')
+      .select('videos')
 
-    const existingIds = new Set(existing?.map((r) => r.youtube_video_id) ?? [])
+    const existingIds = new Set<string>()
+    for (const s of allSessions ?? []) {
+      for (const v of (s.videos as Array<{ id: string }>) ?? []) {
+        if (v.id) existingIds.add(v.id)
+      }
+    }
 
     const newItems = items.filter(
       (item) => item.contentDetails?.videoId && !existingIds.has(item.contentDetails.videoId)
@@ -115,7 +119,7 @@ export async function POST(req: NextRequest) {
       byDate.get(label)!.push({ videoId, title })
     }
 
-    // ── Create sessions + insert session_videos ───────────────────────────────
+    // ── Create sessions + append to sessions.videos JSONB ─────────────────────
     let imported = 0
     let sessionsCreated = 0
 
@@ -123,19 +127,21 @@ export async function POST(req: NextRequest) {
       // Check if a session with this label already exists
       const { data: existingSession } = await supabase
         .from('sessions')
-        .select('id')
+        .select('id, videos')
         .eq('label', label)
         .single()
 
       let sessionId: string
+      let currentVideos: Array<{ id: string; name: string; note?: string; noteTimestamp?: number }> = []
 
       if (existingSession) {
         sessionId = existingSession.id
+        currentVideos = (existingSession.videos as typeof currentVideos) ?? []
       } else {
         // Create new session (not active by default)
         const { data: newSession, error: sessionError } = await supabase
           .from('sessions')
-          .insert({ label, is_active: false })
+          .insert({ label, videos: [], is_active: false })
           .select('id')
           .single()
 
@@ -148,33 +154,21 @@ export async function POST(req: NextRequest) {
         sessionsCreated++
       }
 
-      // Get current max position in this session
-      const { data: positionData } = await supabase
-        .from('session_videos')
-        .select('position')
-        .eq('session_id', sessionId)
-        .order('position', { ascending: false })
-        .limit(1)
-        .single()
-
-      let nextPosition = (positionData?.position ?? -1) + 1
-
-      // Insert video rows
-      const videoRows = videos.map((v) => ({
-        session_id: sessionId,
-        youtube_video_id: v.videoId,
-        title: v.title,
-        position: nextPosition++,
-        note: null,
-        note_timestamp: null,
+      // Append new videos to JSONB array
+      const newVideos = videos.map((v) => ({
+        id: v.videoId,
+        name: v.title,
       }))
 
-      const { error: insertError } = await supabase
-        .from('session_videos')
-        .insert(videoRows)
+      const updatedVideos = [...currentVideos, ...newVideos]
 
-      if (insertError) {
-        console.error('[youtube/import] Failed to insert session_videos:', insertError)
+      const { error: updateError } = await supabase
+        .from('sessions')
+        .update({ videos: updatedVideos })
+        .eq('id', sessionId)
+
+      if (updateError) {
+        console.error('[youtube/import] Failed to update session videos:', updateError)
         continue
       }
 
