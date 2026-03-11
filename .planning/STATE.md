@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-03-11T02:24:38.710Z"
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-03-11T02:25:33.770Z"
 last_activity: 2026-03-11 — 03-04 Phase 3 end-to-end verification approved
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 15
-  completed_plans: 13
+  completed_plans: 14
   percent: 75
 ---
 
@@ -64,6 +64,7 @@ Progress: [████████████░░░░] 75% (plans: 11 of ~
 | Phase 03-core-content P04 | 9 | 2 tasks | 4 files |
 | Phase 04-engagement P01 | 2 | 2 tasks | 11 files |
 | Phase 04-engagement P02 | 4 | 2 tasks | 7 files |
+| Phase 04-engagement P03 | 6 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,8 @@ Recent decisions affecting current work:
 - [Phase 04-engagement]: MentionTextarea uses mousedown for dropdown selection to prevent textarea blur before selection registers
 - [Phase 04-engagement]: users prop optional on all mention-aware components — empty array default degrades gracefully for unauthenticated visitors
 - [Phase 04-engagement]: parseMentions re-exported from comment-utils for single import convenience; ReactMarkdown p/li override for @mention styling in articles
+- [Phase 04-engagement]: NotificationBell polls GET /api/notifications every 30s only while dropdown is open — avoids constant background traffic
+- [Phase 04-engagement]: Users API non-captain path maps to minimal {id, username, display_name} fields — no sensitive fields (role, is_active) exposed
 
 ### Pending Todos
 
@@ -128,6 +131,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T02:24:38.708Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-03-11T02:25:33.768Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
