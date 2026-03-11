@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-02-PLAN.md — article editor 4 block types + dnd-kit
-last_updated: "2026-03-11T00:42:47.784Z"
+stopped_at: Completed 03-03-PLAN.md — tags, session lifecycle, chapter UI
+last_updated: "2026-03-11T00:53:13.540Z"
 last_activity: 2026-03-10 — 02-01 YouTube-only foundation complete
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 11
-  completed_plans: 9
+  completed_plans: 10
   percent: 67
 ---
 
@@ -60,6 +60,7 @@ Progress: [████████░░] 67% (plans: 4 of ~6 estimated)
 | Phase 02-video-playback P03 | checkpoint-verified | 3 tasks | 9 files |
 | Phase 03-core-content P01 | 4 | 3 tasks | 7 files |
 | Phase 03-core-content P02 | 5 | 2 tasks | 4 files |
+| Phase 03-core-content P03 | 7 | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -101,6 +102,9 @@ Recent decisions affecting current work:
 - [Phase 03-core-content]: Google Sheet import dropped entirely per locked Phase 3 decision
 - [Phase 03-core-content]: Stable _id via crypto.randomUUID on block creation; stripped before API save — no DB schema changes needed
 - [Phase 03-core-content]: Arrow-button keyboard fallback retained alongside dnd-kit drag handles for accessibility parity
+- [Phase 03-core-content]: Zod v4 uses .issues[] not .errors[] for validation — fixed in reference-videos and sessions routes
+- [Phase 03-core-content]: Session close carries only send_to_captain=true comments forward to new session
+- [Phase 03-core-content]: Inline chapter add available to any authenticated user (trust-based, per plan decision)
 
 ### Pending Todos
 
@@ -113,6 +117,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T00:42:47.783Z
-Stopped at: Completed 03-02-PLAN.md — article editor 4 block types + dnd-kit
+Last session: 2026-03-11T00:53:13.539Z
+Stopped at: Completed 03-03-PLAN.md — tags, session lifecycle, chapter UI
 Resume file: None

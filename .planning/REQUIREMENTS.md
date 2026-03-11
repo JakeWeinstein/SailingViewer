@@ -49,11 +49,11 @@
 
 ### Content & Reference
 
-- [ ] **CONT-01**: Captain can create sessions (weekly practice groupings)
+- [x] **CONT-01**: Captain can create sessions (weekly practice groupings)
 - [x] **CONT-02**: Captain can import practice videos from Google Sheet containing Drive links
-- [ ] **CONT-03**: Reference videos organized in folder hierarchy
-- [ ] **CONT-04**: Reference videos can be tagged for cross-cutting topics
-- [ ] **CONT-05**: Anyone logged in can add chapters to reference videos
+- [x] **CONT-03**: Reference videos organized in folder hierarchy
+- [x] **CONT-04**: Reference videos can be tagged for cross-cutting topics
+- [x] **CONT-05**: Anyone logged in can add chapters to reference videos
 - [x] **CONT-06**: Block-based article editor with text and video embed blocks
 - [x] **CONT-07**: Articles have published/draft visibility
 - [ ] **CONT-08**: Full-text search across videos, comments, articles, and Q&A
@@ -116,11 +116,11 @@
 | COMM-01 | Phase 3 | Complete |
 | COMM-02 | Phase 3 | Complete |
 | COMM-03 | Phase 3 | Complete |
-| CONT-01 | Phase 3 | Pending |
+| CONT-01 | Phase 3 | Complete |
 | CONT-02 | Phase 3 | Complete |
-| CONT-03 | Phase 3 | Pending |
-| CONT-04 | Phase 3 | Pending |
-| CONT-05 | Phase 3 | Pending |
+| CONT-03 | Phase 3 | Complete |
+| CONT-04 | Phase 3 | Complete |
+| CONT-05 | Phase 3 | Complete |
 | CONT-06 | Phase 3 | Complete |
 | CONT-07 | Phase 3 | Complete |
 | QA-01 | Phase 4 | Pending |
