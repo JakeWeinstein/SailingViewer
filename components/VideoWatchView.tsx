@@ -740,7 +740,7 @@ export default function VideoWatchView({
             <div className="border-b border-gray-100 shrink-0">
               <button
                 onClick={() => setCommentsExpanded(true)}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                className="w-full pl-4 pr-12 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-gray-400" />
@@ -770,7 +770,7 @@ export default function VideoWatchView({
             <>
               <button
                 onClick={() => setCommentsExpanded(false)}
-                className="w-full px-4 py-2.5 flex items-center justify-between border-b border-gray-100 hover:bg-gray-50 transition-colors shrink-0"
+                className="w-full pl-4 pr-12 py-2.5 flex items-center justify-between border-b border-gray-100 hover:bg-gray-50 transition-colors shrink-0"
               >
                 <div className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-gray-400" />
