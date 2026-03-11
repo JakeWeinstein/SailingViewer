@@ -559,6 +559,8 @@ export default function TeamFormPage() {
           sessionId={watchTarget.sessionId}
           activeSessionId={activeSession?.id}
           userName={userName}
+          userRole={authUser?.role as 'captain' | 'contributor' | 'viewer' | undefined}
+          isAuthenticated={!!authUser}
           isFavorited={favorites.has(watchTarget.video.id)}
           onFavoriteToggle={() => toggleFavorite(watchTarget.video.id)}
           onNoteUpdated={handleNoteUpdated}

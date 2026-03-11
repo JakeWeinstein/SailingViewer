@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers, Reply, Edit2, Bookmark } from 'lucide-react'
+import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers, Reply, Edit2, Bookmark, Pencil } from 'lucide-react'
 import { parseTimestamp, formatTime, youtubeThumbnailUrl, type SessionVideo, type VideoNote, type ReferenceVideo } from '@/lib/types'
 import { timeAgo, initials, avatarColor, parseMentions } from '@/lib/comment-utils'
 import { onYouTubeReady } from '@/lib/youtube-api'
@@ -64,6 +64,9 @@ interface VideoWatchViewProps {
   onChapterChange?: (chapter: ReferenceVideo) => void  // switch watchTarget to a different chapter
   // Legacy callback (kept for callers that haven't migrated)
   onNoteUpdated?: (videoId: string, note: string, noteTimestamp?: number) => void
+  // Auth state for chapter editing
+  isAuthenticated?: boolean
+  onChaptersChanged?: () => void
   // @mention autocomplete data
   users?: MentionUser[]
 }
@@ -73,10 +76,13 @@ export default function VideoWatchView({
   isCaptain = false,
   isFavorited = false, onFavoriteToggle, onClose, onNotesUpdated, onNoteUpdated,
   mediaId, videoType = 'youtube', noteApiPath, startSeconds,
-  siblingChapters, onChapterChange, users = [],
+  siblingChapters, onChapterChange,
+  isAuthenticated = false, onChaptersChanged,
+  users = [],
 }: VideoWatchViewProps) {
   // isCaptain can be set via prop or derived from userRole
   const effectiveCaptain = isCaptain || userRole === 'captain'
+  const canEditChapters = isAuthenticated || effectiveCaptain || !!userId
   const effectiveVideoId = mediaId ?? video.id
 
   // Whether we are in multi-part mode (chapters have different video_refs)
@@ -101,6 +107,16 @@ export default function VideoWatchView({
     return idx >= 0 ? idx : 0
   })
   const activeChapterIndexRef = useRef(activeChapterIndex)
+
+  // ── Chapter editing state ──
+  const [addingChapter, setAddingChapter] = useState(false)
+  const [newChapterTitle, setNewChapterTitle] = useState('')
+  const [newChapterTimestamp, setNewChapterTimestamp] = useState('')
+  const [chapterSaving, setChapterSaving] = useState(false)
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null)
+  const [editChapterTitle, setEditChapterTitle] = useState('')
+  const [editChapterTimestamp, setEditChapterTimestamp] = useState('')
+  const [chapterError, setChapterError] = useState('')
 
   // Keep refs in sync
   useEffect(() => { onChapterChangeRef.current = onChapterChange }, [onChapterChange])
@@ -185,6 +201,91 @@ export default function VideoWatchView({
     }
     onChapterChangeRef.current?.(chapter)
   }, [effectiveVideoId])
+
+  // ── Chapter add/edit handlers ──
+  async function handleAddChapter() {
+    const title = newChapterTitle.trim()
+    if (!title) { setChapterError('Title is required.'); return }
+    let start_seconds: number | null = null
+    if (newChapterTimestamp.trim()) {
+      start_seconds = parseTimestamp(newChapterTimestamp.trim())
+      if (start_seconds === null) { setChapterError('Invalid timestamp. Use MM:SS or HH:MM:SS.'); return }
+    }
+    // Determine parent_video_id
+    const parent_video_id = siblingChapters?.[0]?.parent_video_id || video.id
+    setChapterSaving(true)
+    setChapterError('')
+    try {
+      const res = await fetch('/api/reference-videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, type: 'youtube', video_ref: '', parent_video_id, start_seconds, tags: [] }),
+      })
+      if (res.ok) {
+        onChaptersChanged?.()
+        setAddingChapter(false)
+        setNewChapterTitle('')
+        setNewChapterTimestamp('')
+        setChapterError('')
+      } else {
+        const err = await res.json()
+        setChapterError(err.error ?? 'Failed to add chapter.')
+      }
+    } catch {
+      setChapterError('Network error.')
+    } finally {
+      setChapterSaving(false)
+    }
+  }
+
+  async function handleEditChapter() {
+    if (!editingChapterId) return
+    const title = editChapterTitle.trim()
+    if (!title) { setChapterError('Title is required.'); return }
+    let start_seconds: number | null = null
+    if (editChapterTimestamp.trim()) {
+      start_seconds = parseTimestamp(editChapterTimestamp.trim())
+      if (start_seconds === null) { setChapterError('Invalid timestamp. Use MM:SS or HH:MM:SS.'); return }
+    }
+    setChapterSaving(true)
+    setChapterError('')
+    try {
+      const res = await fetch(`/api/reference-videos/${editingChapterId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, start_seconds }),
+      })
+      if (res.ok) {
+        onChaptersChanged?.()
+        setEditingChapterId(null)
+        setEditChapterTitle('')
+        setEditChapterTimestamp('')
+        setChapterError('')
+      } else {
+        const err = await res.json()
+        setChapterError(err.error ?? 'Failed to update chapter.')
+      }
+    } catch {
+      setChapterError('Network error.')
+    } finally {
+      setChapterSaving(false)
+    }
+  }
+
+  function startEditingChapter(ch: ReferenceVideo) {
+    setEditingChapterId(ch.id)
+    setEditChapterTitle(ch.title)
+    setEditChapterTimestamp(ch.start_seconds != null ? formatTime(ch.start_seconds) : '')
+    setChapterError('')
+    setAddingChapter(false)
+  }
+
+  function getCurrentTimeFormatted(): string {
+    const player = ytPlayerRef.current
+    if (!player) return '0:00'
+    const seconds = Math.floor(player.getCurrentTime())
+    return formatTime(seconds)
+  }
 
   // ── Seek helper (for comment timestamps and captain notes) ──
   function seekTo(seconds: number) {
@@ -615,27 +716,193 @@ export default function VideoWatchView({
               <div className="space-y-1 max-h-48 overflow-y-auto">
                 {siblingChapters.map((ch, idx) => {
                   const isActive = idx === activeChapterIndex
+                  // Inline edit form for this chapter
+                  if (editingChapterId === ch.id) {
+                    return (
+                      <div key={ch.id} className="bg-white border border-purple-200 rounded-lg p-2 space-y-1.5">
+                        <input
+                          type="text"
+                          value={editChapterTitle}
+                          onChange={(e) => setEditChapterTitle(e.target.value)}
+                          placeholder="Chapter title"
+                          autoFocus
+                          className="w-full px-2 py-1 text-xs border border-purple-200 rounded focus:outline-none focus:ring-1 focus:ring-purple-400"
+                        />
+                        <input
+                          type="text"
+                          value={editChapterTimestamp}
+                          onChange={(e) => setEditChapterTimestamp(e.target.value)}
+                          placeholder="MM:SS"
+                          className="w-full px-2 py-1 text-xs border border-purple-200 rounded focus:outline-none focus:ring-1 focus:ring-purple-400"
+                        />
+                        {chapterError && <p className="text-xs text-red-500">{chapterError}</p>}
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={handleEditChapter}
+                            disabled={chapterSaving}
+                            className="flex-1 px-2 py-1 text-xs font-medium bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
+                          >
+                            {chapterSaving ? 'Saving...' : 'Save'}
+                          </button>
+                          <button
+                            onClick={() => { setEditingChapterId(null); setChapterError('') }}
+                            className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  }
                   return (
-                    <button
-                      key={ch.id}
-                      onClick={() => handleChapterClick(ch, idx)}
-                      className={clsx(
-                        'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left transition-all',
-                        isActive
-                          ? 'bg-purple-600 text-white shadow-sm'
-                          : 'bg-white text-purple-700 border border-purple-100 hover:bg-purple-100 hover:border-purple-200'
+                    <div key={ch.id} className="group/ch relative">
+                      <button
+                        onClick={() => handleChapterClick(ch, idx)}
+                        className={clsx(
+                          'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-left transition-all',
+                          isActive
+                            ? 'bg-purple-600 text-white shadow-sm'
+                            : 'bg-white text-purple-700 border border-purple-100 hover:bg-purple-100 hover:border-purple-200'
+                        )}
+                      >
+                        {ch.start_seconds != null && (
+                          <span className={clsx('font-mono text-[10px] shrink-0', isActive ? 'text-purple-200' : 'text-purple-400')}>
+                            {formatTime(ch.start_seconds)}
+                          </span>
+                        )}
+                        <span className="flex-1 truncate font-medium">{ch.title}</span>
+                      </button>
+                      {canEditChapters && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); startEditingChapter(ch) }}
+                          className={clsx(
+                            'absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover/ch:opacity-100 transition-opacity',
+                            isActive ? 'text-purple-200 hover:text-white' : 'text-purple-300 hover:text-purple-600'
+                          )}
+                          title="Edit chapter"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
                       )}
-                    >
-                      {ch.start_seconds != null && (
-                        <span className={clsx('font-mono text-[10px] shrink-0', isActive ? 'text-purple-200' : 'text-purple-400')}>
-                          {formatTime(ch.start_seconds)}
-                        </span>
-                      )}
-                      <span className="flex-1 truncate font-medium">{ch.title}</span>
-                    </button>
+                    </div>
                   )
                 })}
               </div>
+              {/* Add chapter button */}
+              {canEditChapters && !addingChapter && (
+                <button
+                  onClick={() => { setAddingChapter(true); setChapterError(''); setEditingChapterId(null) }}
+                  className="flex items-center gap-1 mt-2 text-xs text-purple-500 hover:text-purple-700 transition-colors"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add chapter
+                </button>
+              )}
+              {/* Add chapter form */}
+              {canEditChapters && addingChapter && (
+                <div className="mt-2 bg-white border border-purple-200 rounded-lg p-2 space-y-1.5">
+                  <input
+                    type="text"
+                    value={newChapterTitle}
+                    onChange={(e) => setNewChapterTitle(e.target.value)}
+                    placeholder="Chapter title"
+                    autoFocus
+                    className="w-full px-2 py-1 text-xs border border-purple-200 rounded focus:outline-none focus:ring-1 focus:ring-purple-400"
+                  />
+                  <div className="flex gap-1.5 items-center">
+                    <input
+                      type="text"
+                      value={newChapterTimestamp}
+                      onChange={(e) => setNewChapterTimestamp(e.target.value)}
+                      placeholder="MM:SS"
+                      className="flex-1 px-2 py-1 text-xs border border-purple-200 rounded focus:outline-none focus:ring-1 focus:ring-purple-400"
+                    />
+                    <button
+                      onClick={() => setNewChapterTimestamp(getCurrentTimeFormatted())}
+                      className="shrink-0 flex items-center gap-1 px-2 py-1 text-xs text-purple-500 hover:text-purple-700 border border-purple-200 rounded transition-colors"
+                      title="Use current player time"
+                    >
+                      <Clock className="h-3 w-3" />
+                      Now
+                    </button>
+                  </div>
+                  {chapterError && <p className="text-xs text-red-500">{chapterError}</p>}
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={handleAddChapter}
+                      disabled={chapterSaving}
+                      className="flex-1 px-2 py-1 text-xs font-medium bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      {chapterSaving ? 'Adding...' : 'Add chapter'}
+                    </button>
+                    <button
+                      onClick={() => { setAddingChapter(false); setChapterError('') }}
+                      className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Add first chapter — shown for reference videos without existing chapters */}
+          {(!siblingChapters || siblingChapters.length <= 1) && (mediaId || noteApiPath) && canEditChapters && (
+            <div className="border-b border-purple-100 bg-purple-50/50 px-4 py-2.5 shrink-0">
+              {!addingChapter ? (
+                <button
+                  onClick={() => { setAddingChapter(true); setChapterError('') }}
+                  className="flex items-center gap-1 text-xs text-purple-500 hover:text-purple-700 transition-colors"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add first chapter
+                </button>
+              ) : (
+                <div className="bg-white border border-purple-200 rounded-lg p-2 space-y-1.5">
+                  <input
+                    type="text"
+                    value={newChapterTitle}
+                    onChange={(e) => setNewChapterTitle(e.target.value)}
+                    placeholder="Chapter title"
+                    autoFocus
+                    className="w-full px-2 py-1 text-xs border border-purple-200 rounded focus:outline-none focus:ring-1 focus:ring-purple-400"
+                  />
+                  <div className="flex gap-1.5 items-center">
+                    <input
+                      type="text"
+                      value={newChapterTimestamp}
+                      onChange={(e) => setNewChapterTimestamp(e.target.value)}
+                      placeholder="MM:SS"
+                      className="flex-1 px-2 py-1 text-xs border border-purple-200 rounded focus:outline-none focus:ring-1 focus:ring-purple-400"
+                    />
+                    <button
+                      onClick={() => setNewChapterTimestamp(getCurrentTimeFormatted())}
+                      className="shrink-0 flex items-center gap-1 px-2 py-1 text-xs text-purple-500 hover:text-purple-700 border border-purple-200 rounded transition-colors"
+                      title="Use current player time"
+                    >
+                      <Clock className="h-3 w-3" />
+                      Now
+                    </button>
+                  </div>
+                  {chapterError && <p className="text-xs text-red-500">{chapterError}</p>}
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={handleAddChapter}
+                      disabled={chapterSaving}
+                      className="flex-1 px-2 py-1 text-xs font-medium bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      {chapterSaving ? 'Adding...' : 'Add chapter'}
+                    </button>
+                    <button
+                      onClick={() => { setAddingChapter(false); setChapterError('') }}
+                      className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
