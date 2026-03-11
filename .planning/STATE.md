@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Completed 03-03-PLAN.md — tags, session lifecycle, chapter UI
-last_updated: "2026-03-11T00:53:13.540Z"
+stopped_at: Completed 03-04 tasks 1 and 2 — human-verify checkpoint Task 3 pending
+last_updated: "2026-03-11T01:05:21.403Z"
 last_activity: 2026-03-10 — 02-01 YouTube-only foundation complete
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
   percent: 67
 ---
 
@@ -61,6 +61,7 @@ Progress: [████████░░] 67% (plans: 4 of ~6 estimated)
 | Phase 03-core-content P01 | 4 | 3 tasks | 7 files |
 | Phase 03-core-content P02 | 5 | 2 tasks | 4 files |
 | Phase 03-core-content P03 | 7 | 3 tasks | 9 files |
+| Phase 03-core-content P04 | 9 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,8 @@ Recent decisions affecting current work:
 - [Phase 03-core-content]: Zod v4 uses .issues[] not .errors[] for validation — fixed in reference-videos and sessions routes
 - [Phase 03-core-content]: Session close carries only send_to_captain=true comments forward to new session
 - [Phase 03-core-content]: Inline chapter add available to any authenticated user (trust-based, per plan decision)
+- [Phase 03-core-content]: effectiveCaptain = isCaptain || userRole='captain' — covers both prop paths without breaking existing callers
+- [Phase 03-core-content]: Flagged count in dashboard derived from reviewComments (already fetched) — avoids extra API call
 
 ### Pending Todos
 
@@ -117,6 +120,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T00:53:13.539Z
-Stopped at: Completed 03-03-PLAN.md — tags, session lifecycle, chapter UI
+Last session: 2026-03-11T01:05:21.402Z
+Stopped at: Completed 03-04 tasks 1 and 2 — human-verify checkpoint Task 3 pending
 Resume file: None
