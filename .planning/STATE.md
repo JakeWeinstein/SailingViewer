@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed quick task 13
-last_updated: "2026-03-11T21:44:37Z"
-last_activity: "2026-03-11 - Completed quick task 13: Fix search result navigation for chapters and comments"
+stopped_at: Completed quick task 14
+last_updated: "2026-03-11T22:01:55.387Z"
+last_activity: "2026-03-11 - Completed quick task 14: Persist UI state across tab switches"
 progress:
   total_phases: 5
   completed_phases: 5
@@ -161,9 +161,10 @@ None yet.
 | 11 | Add search bar to presentation mode sidebar | 2026-03-11 | 0322e85 | [11-add-search-bar-to-presentation-view-that](./quick/11-add-search-bar-to-presentation-view-that/) |
 | 12 | Fix search result navigation: chapters not selecting correct chapter, comments going to homepage | 2026-03-11 | 3af8770 | [12-fix-search-result-navigation-chapters-no](./quick/12-fix-search-result-navigation-chapters-no/) |
 | 13 | Fix search result navigation for chapters and reference video comments | 2026-03-11 | ecb412e | [13-fix-search-result-navigation-for-chapter](./quick/13-fix-search-result-navigation-for-chapter/) |
+| 14 | Persist UI state across tab switches (tab + folder open/close) | 2026-03-11 | 43f1223 | [14-persist-ui-state-across-tab-switches-vid](./quick/14-persist-ui-state-across-tab-switches-vid/) |
 
 ## Session Continuity
 
-Last session: 2026-03-11T21:44:37Z
-Stopped at: Completed quick task 13
+Last session: 2026-03-11T22:01:55.384Z
+Stopped at: Completed quick task 14
 Resume file: None
