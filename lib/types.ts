@@ -80,6 +80,10 @@ export type Comment = {
   is_edited?: boolean
   updated_at?: string
   youtube_attachment?: string
+  // Phase 5: review lifecycle
+  is_reviewed?: boolean
+  reviewed_at?: string | null
+  sort_order?: number | null
 }
 
 /** @deprecated Use DbUser after component rewrite */
