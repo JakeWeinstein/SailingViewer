@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 Phase: 3 of 5 (Core Content) — COMPLETE
 Plan: 4 of 4 complete in Phase 3
 Status: Phase 3 fully verified — all 13 e2e steps approved by human
-Last activity: 2026-03-11 - Completed quick task 13: Fix search result navigation for chapters and comments
+Last activity: 2026-03-11 - Completed quick task 14: Persist UI state across tab switches, video navigation, and page refresh
 
 Progress: [████████████░░░░] 75% (plans: 11 of ~14 estimated — 3 phases complete)
 
