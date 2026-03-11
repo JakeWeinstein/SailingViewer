@@ -121,6 +121,15 @@ export default function TeamFormPage() {
       const tParam = params.get('t')
       const startSeconds = tParam ? parseInt(tParam, 10) : undefined
       pendingDeepLink.current = { sessionId: sessionParam, videoId: videoParam, startSeconds }
+    } else if (videoParam && !sessionParam) {
+      // Sessionless video (e.g., comment on reference video) — construct minimal WatchTarget
+      const tParam = params.get('t')
+      const startSeconds = tParam ? parseInt(tParam, 10) : undefined
+      setWatchTarget({
+        video: { id: videoParam, name: 'Video' } as SessionVideo,
+        sessionId: '',
+        startSeconds,
+      })
     }
 
     // Clear URL params to prevent re-triggering on refresh

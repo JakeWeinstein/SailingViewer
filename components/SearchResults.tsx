@@ -163,15 +163,23 @@ export default function SearchResults() {
         // Navigate to reference tab with parent video context and chapter ID
         return `/?view=reference&ref=${result.url_hint}&chapter=${result.id}`
       case 'comment': {
-        // url_hint is "session_id|video_id" pipe-separated
-        const [sessionId, videoId] = result.url_hint.split('|')
+        // url_hint is "session_id|video_id" pipe-separated; may be null for reference video comments
+        const parts = (result.url_hint || '').split('|')
+        const sessionId = parts[0] || ''
+        const videoId = parts[1] || ''
+        // Parse timestamp from snippet prefix like "[1:30] comment text"
+        const tsMatch = result.snippet.match(/^\[(\d+):(\d{2})\]/)
+        const seconds = tsMatch ? parseInt(tsMatch[1], 10) * 60 + parseInt(tsMatch[2], 10) : null
         if (sessionId && videoId) {
-          // Parse timestamp from snippet prefix like "[1:30] comment text"
-          const tsMatch = result.snippet.match(/^\[(\d+):(\d{2})\]/)
-          const seconds = tsMatch ? parseInt(tsMatch[1], 10) * 60 + parseInt(tsMatch[2], 10) : null
           return seconds !== null
             ? `/?session=${sessionId}&video=${videoId}&t=${seconds}`
             : `/?session=${sessionId}&video=${videoId}`
+        }
+        if (videoId) {
+          // Reference video comment (no session) — use sessionless deep-link
+          return seconds !== null
+            ? `/?video=${videoId}&t=${seconds}`
+            : `/?video=${videoId}`
         }
         // Fallback if only session_id available
         return sessionId ? `/?session=${sessionId}` : '/'
