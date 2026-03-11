@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { getTokenPayload } from '@/lib/auth'
+import { UpdateReferenceVideoSchema } from '@/lib/schemas/reference-videos'
 
 export async function DELETE(
   req: NextRequest,
@@ -25,15 +26,30 @@ export async function PATCH(
   const { id } = await params
   const body = await req.json()
 
+  const parseResult = UpdateReferenceVideoSchema.safeParse(body)
+  if (!parseResult.success) {
+    const firstIssue = parseResult.error.issues?.[0]
+    return NextResponse.json(
+      { error: firstIssue?.message ?? 'Invalid input' },
+      { status: 400 }
+    )
+  }
+
+  const validated = parseResult.data
   const updates: Record<string, unknown> = {}
+
   if ('note' in body) updates.note = body.note ?? null
   if ('noteTimestamp' in body) updates.note_timestamp = body.noteTimestamp ?? null
   if ('notes' in body) updates.notes = body.notes ?? []
   if ('folder_id' in body) updates.folder_id = body.folder_id ?? null
-  if ('title' in body) updates.title = body.title
-  if ('type' in body) updates.type = body.type
-  if ('video_ref' in body) updates.video_ref = body.video_ref
+  if ('title' in body && validated.title !== undefined) updates.title = validated.title
+  if ('type' in body && validated.type !== undefined) updates.type = validated.type
+  if ('video_ref' in body && validated.video_ref !== undefined) updates.video_ref = validated.video_ref
   if ('start_seconds' in body) updates.start_seconds = body.start_seconds ?? null
+  if ('tags' in body && validated.tags !== undefined) {
+    // Normalize tags: lowercase and trim
+    updates.tags = validated.tags.map((t) => t.trim().toLowerCase()).filter(Boolean)
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
