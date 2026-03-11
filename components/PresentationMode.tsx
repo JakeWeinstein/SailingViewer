@@ -408,35 +408,18 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
                 </p>
               </div>
 
-              {/* Video embed */}
-              {activeItem.video_id && (() => {
-                // video_id is the session video UUID — we use video_title to find context
-                // For the embed, we rely on youtube_attachment or need the youtube_video_id
-                // The Comment type doesn't carry youtube_video_id directly —
-                // use youtube_attachment if present, otherwise show a placeholder
-                const ytId = activeItem.youtube_attachment
-                if (!ytId) return (
-                  <div className="bg-gray-800 rounded-xl p-5 text-center">
-                    <p className="text-gray-500 text-sm">
-                      Video: {activeItem.video_title ?? activeItem.video_id}
-                    </p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      Open in dashboard to play alongside this comment
-                    </p>
-                  </div>
-                )
-                return (
-                  <div className="rounded-xl overflow-hidden bg-black aspect-video">
-                    <iframe
-                      src={youtubeEmbedUrl(ytId, activeItem.timestamp_seconds ?? undefined)}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      title={activeItem.video_title ?? 'Practice video'}
-                    />
-                  </div>
-                )
-              })()}
+              {/* Video embed — video_id IS the YouTube video ID */}
+              {activeItem.video_id && (
+                <div className="rounded-xl overflow-hidden bg-black aspect-video">
+                  <iframe
+                    src={youtubeEmbedUrl(activeItem.video_id!, activeItem.timestamp_seconds ?? undefined)}
+                    className="w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    title={activeItem.video_title ?? 'Practice video'}
+                  />
+                </div>
+              )}
 
               {/* Q&A youtube_attachment embed */}
               {!activeItem.video_id && activeItem.youtube_attachment && (
