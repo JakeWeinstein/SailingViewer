@@ -17,6 +17,7 @@ export type DbSession = {
   id: string
   label: string
   is_active: boolean
+  closed_at: string | null
   created_at: string
 }
 
@@ -40,6 +41,8 @@ export type DbComment = {
   comment_text: string
   send_to_captain: boolean
   parent_id: string | null
+  is_edited: boolean
+  updated_at: string
   created_at: string
 }
 
@@ -74,6 +77,8 @@ export type Comment = {
   created_at: string
   parent_id: string | null
   reply_count?: number
+  is_edited?: boolean
+  updated_at?: string
 }
 
 /** @deprecated Use DbUser after component rewrite */
@@ -113,6 +118,7 @@ export type ReferenceVideo = {
   folder_id?: string | null
   parent_video_id?: string | null  // non-null for chapter entries
   start_seconds?: number | null    // chapter start timestamp in seconds
+  tags: string[]
   created_at: string
 }
 
@@ -160,22 +166,6 @@ export type Article = {
   updated_at: string
 }
 
-/**
- * @deprecated Drive thumbnails are no longer used. Use youtubeThumbnailUrl() instead.
- * Kept temporarily for backward compatibility until component rewrite in Plan 03.
- */
-export function thumbnailUrl(id: string) {
-  return `https://drive.google.com/thumbnail?id=${id}&sz=w400-h225`
-}
-
-/**
- * @deprecated Drive embeds are no longer used. Use youtubeEmbedUrl() instead.
- * Kept temporarily for backward compatibility until component rewrite in Plan 03.
- */
-export function embedUrl(id: string) {
-  return `https://drive.google.com/file/d/${id}/preview`
-}
-
 export function youtubeThumbnailUrl(id: string) {
   return `https://img.youtube.com/vi/${id}/mqdefault.jpg`
 }
@@ -203,20 +193,6 @@ export function formatTime(seconds: number): string {
   const s = seconds % 60
   if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
   return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-/**
- * @deprecated Drive file IDs are no longer used. Use extractYouTubeInfo() instead.
- * Kept temporarily for backward compatibility until component rewrite in Plan 03.
- */
-export function extractDriveFileId(input: string): string | null {
-  const s = input.trim()
-  const m1 = s.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)
-  if (m1) return m1[1]
-  const m2 = s.match(/[?&]id=([a-zA-Z0-9_-]+)/)
-  if (m2) return m2[1]
-  if (/^[a-zA-Z0-9_-]{10,}$/.test(s)) return s
-  return null
 }
 
 /** Extract YouTube video ID and optional start time from a URL */
