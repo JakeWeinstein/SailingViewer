@@ -128,13 +128,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       )
     }
 
-    // Carry forward: move unreviewed flagged comments to new session
-    // (comments where send_to_captain = true from the closed session)
+    // Carry forward: move unreviewed flagged comments to new session.
+    // Only move is_reviewed=false items; reset sort_order so they re-sort in new session context.
     await supabase
       .from('comments')
-      .update({ session_id: newSession.id })
+      .update({ session_id: newSession.id, sort_order: null })
       .eq('session_id', id)
       .eq('send_to_captain', true)
+      .eq('is_reviewed', false)
 
     return NextResponse.json({ closed: closedSession, next: newSession })
   }

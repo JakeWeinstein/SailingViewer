@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { getTokenPayload } from '@/lib/auth'
-import { EditCommentSchema } from '@/lib/schemas/comments'
+import { EditCommentSchema, ReviewCommentSchema } from '@/lib/schemas/comments'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-// PATCH /api/comments/[id] — edit own comment (or captain for moderation)
+// PATCH /api/comments/[id]
+// Accepts {comment_text} for owner/captain text edits
+// Accepts {is_reviewed} (boolean) for captain review marking
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
   const payload = await getTokenPayload(req)
   if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -13,11 +15,37 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   const { id } = await params
 
   const body = await req.json()
-  const parsed = EditCommentSchema.safeParse(body)
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors }, { status: 400 })
+
+  // Try edit schema first, then review schema
+  const editParsed = EditCommentSchema.safeParse(body)
+  const reviewParsed = ReviewCommentSchema.safeParse(body)
+
+  if (!editParsed.success && !reviewParsed.success) {
+    return NextResponse.json({ error: 'Invalid input', details: editParsed.error.flatten().fieldErrors }, { status: 400 })
   }
 
+  // ── Review marking path (captain only) ────────────────────────────────────
+  if (reviewParsed.success && !editParsed.success) {
+    if (payload.role !== 'captain') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    const { is_reviewed } = reviewParsed.data
+    const { data: updated, error: updateError } = await supabase
+      .from('comments')
+      .update({
+        is_reviewed,
+        reviewed_at: is_reviewed ? new Date().toISOString() : null,
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+    return NextResponse.json(updated)
+  }
+
+  // ── Text edit path (owner or captain) ──────────────────────────────────────
   // Fetch existing comment to verify ownership
   const { data: existing, error: fetchError } = await supabase
     .from('comments')
@@ -39,7 +67,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
   const { data: updated, error: updateError } = await supabase
     .from('comments')
     .update({
-      comment_text: parsed.data.comment_text,
+      comment_text: editParsed.data!.comment_text,
       is_edited: true,
       updated_at: new Date().toISOString(),
     })
