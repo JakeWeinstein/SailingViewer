@@ -40,7 +40,7 @@ function saveFavorites(favs: Set<string>) {
   localStorage.setItem(FAV_KEY, JSON.stringify([...favs]))
 }
 
-interface WatchTarget { video: SessionVideo; sessionId: string }
+interface WatchTarget { video: SessionVideo; sessionId: string; startSeconds?: number }
 
 export default function TeamFormPage() {
   const [userName, setUserName] = useState<string | null>(null)
@@ -116,6 +116,8 @@ export default function TeamFormPage() {
     }
 
     if (videoParam && sessionParam) {
+      const tParam = params.get('t')
+      const startSeconds = tParam ? parseInt(tParam, 10) : undefined
       // Will be resolved once sessions are loaded
       const checkAndOpen = () => {
         setSessions((prev) => {
@@ -123,7 +125,7 @@ export default function TeamFormPage() {
           if (targetSession) {
             const targetVideo = targetSession.videos.find((v) => v.id === videoParam)
             if (targetVideo) {
-              setWatchTarget({ video: targetVideo, sessionId: sessionParam })
+              setWatchTarget({ video: targetVideo, sessionId: sessionParam, startSeconds })
             }
           }
           return prev
@@ -569,6 +571,7 @@ export default function TeamFormPage() {
         <VideoWatchView
           video={watchTarget.video}
           sessionId={watchTarget.sessionId}
+          startSeconds={watchTarget.startSeconds}
           activeSessionId={activeSession?.id}
           userName={userName}
           userRole={authUser?.role as 'captain' | 'contributor' | 'viewer' | undefined}
