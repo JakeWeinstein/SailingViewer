@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-03-11T03:37:22.594Z"
+stopped_at: Completed 05-03-PLAN.md
+last_updated: "2026-03-11T03:42:47.040Z"
 last_activity: 2026-03-11 — 03-04 Phase 3 end-to-end verification approved
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 20
-  completed_plans: 17
+  completed_plans: 18
   percent: 75
 ---
 
@@ -67,6 +67,7 @@ Progress: [████████████░░░░] 75% (plans: 11 of ~
 | Phase 04-engagement P03 | 6 | 2 tasks | 6 files |
 | Phase 05-presentation-and-search P00 | 5 | 2 tasks | 6 files |
 | Phase 05-presentation-and-search P01 | 22 | 2 tasks | 10 files |
+| Phase 05-presentation-and-search P03 | 3 | 1 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -125,6 +126,8 @@ Recent decisions affecting current work:
 - [Phase 05-presentation-and-search]: Dual-schema dispatch in PATCH /api/comments/[id]: EditCommentSchema first, ReviewCommentSchema second — preserves edit flow while adding captain review path
 - [Phase 05-presentation-and-search]: search_all RPC uses lateral jsonb subquery for article snippets to extract clean text from blocks (avoids raw JSON noise)
 - [Phase 05-presentation-and-search]: Carry-forward adds .eq('is_reviewed', false) filter and resets sort_order=null — only unreviewed items move to new session
+- [Phase 05-presentation-and-search]: GlobalSearchBar wrapped in Suspense per-usage-site (not layout.tsx) per Research Option 2
+- [Phase 05-presentation-and-search]: Scroll restoration uses sessionStorage key scroll:{pathname}{search} — saved before navigate, restored on mount
 
 ### Pending Todos
 
@@ -137,6 +140,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T03:37:22.592Z
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-03-11T03:42:47.038Z
+Stopped at: Completed 05-03-PLAN.md
 Resume file: None
