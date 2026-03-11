@@ -301,7 +301,7 @@ export default function TeamFormPage() {
             {activeSession && <p className="text-xs text-gray-400 mt-0.5 truncate">{activeSession.label}</p>}
           </div>
           <Suspense fallback={null}>
-            <GlobalSearchBar className="hidden sm:flex" />
+            <GlobalSearchBar className="flex flex-1 max-w-[200px] sm:max-w-none sm:flex-none" />
           </Suspense>
           {authUser && <NotificationBell />}
           {authUser !== undefined && (

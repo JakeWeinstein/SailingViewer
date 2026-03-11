@@ -7,9 +7,11 @@ import clsx from 'clsx'
 
 interface Props {
   className?: string
+  /** When true, input expands to fill available width */
+  expand?: boolean
 }
 
-export default function GlobalSearchBar({ className }: Props) {
+export default function GlobalSearchBar({ className, expand }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const currentQ = searchParams.get('q') ?? ''
@@ -51,10 +53,11 @@ export default function GlobalSearchBar({ className }: Props) {
         className={clsx(
           'h-8 rounded-full border bg-gray-50 pl-8 pr-3 text-xs text-gray-800 placeholder-gray-400',
           'outline-none transition-all duration-200',
-          focused
-            ? 'w-64 border-blue-400 ring-1 ring-blue-300 bg-white'
-            : 'w-48 border-gray-200 hover:border-gray-300',
-          'sm:block'
+          expand
+            ? 'w-full border-gray-200 hover:border-gray-300 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 focus:bg-white'
+            : focused
+              ? 'w-64 border-blue-400 ring-1 ring-blue-300 bg-white'
+              : 'w-48 border-gray-200 hover:border-gray-300',
         )}
       />
     </form>
