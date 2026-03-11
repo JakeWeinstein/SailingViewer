@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Normalize database schema, secure auth, and enforce server boundaries (completed 2026-03-10)
 - [x] **Phase 2: Video Playback** - YouTube-only playback on mobile and desktop with chapter navigation and auto-import (completed 2026-03-10)
-- [ ] **Phase 3: Core Content** - Comments, sessions, reference library tags/chapters, and article editor redesign
+- [x] **Phase 3: Core Content** - Comments, sessions, reference library tags/chapters, and article editor redesign (completed 2026-03-11)
 - [ ] **Phase 4: Engagement** - Q&A posts, @mentions, notifications, and personal bookmarks
 - [ ] **Phase 5: Presentation and Search** - Review queue, presentation mode, and full-text search
 
@@ -62,12 +62,12 @@ Plans:
   3. The captain can create a session, paste a Google Sheet URL, and the practice videos from that sheet appear in the session
   4. A contributor can organize reference videos in a two-level folder hierarchy, add tags to videos, and add chapter markers
   5. A contributor can write and publish a block-based article containing text and embedded video blocks; drafts are visible only to logged-in users
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 Plans:
-- [ ] 03-01-PLAN.md — Schema migration, Zod schemas, comment API rewrite, import-sheet deletion
-- [ ] 03-02-PLAN.md — Article editor redesign (4 block types, dnd-kit drag-to-reorder)
-- [ ] 03-03-PLAN.md — Reference tags/chapters API + session lifecycle + reference manager UI
-- [ ] 03-04-PLAN.md — Comment UI in VideoWatchView + session browser UI + end-to-end checkpoint
+- [x] 03-01-PLAN.md — Schema migration, Zod schemas, comment API rewrite, import-sheet deletion
+- [x] 03-02-PLAN.md — Article editor redesign (4 block types, dnd-kit drag-to-reorder)
+- [x] 03-03-PLAN.md — Reference tags/chapters API + session lifecycle + reference manager UI
+- [x] 03-04-PLAN.md — Comment UI in VideoWatchView + session browser UI + end-to-end checkpoint
 
 ### Phase 4: Engagement
 **Goal**: Team members can ask questions via Q&A posts, receive notifications when @mentioned or responded to, and bookmark timestamps for personal reference
@@ -101,6 +101,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete   | 2026-03-10 |
 | 2. Video Playback | 4/4 | Complete   | 2026-03-10 |
-| 3. Core Content | 3/4 | In Progress|  |
+| 3. Core Content | 4/4 | Complete   | 2026-03-11 |
 | 4. Engagement | 0/TBD | Not started | - |
 | 5. Presentation and Search | 0/TBD | Not started | - |
