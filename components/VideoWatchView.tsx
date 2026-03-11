@@ -476,6 +476,9 @@ export default function VideoWatchView({
         setTimestampRaw('')
         setSendToCaptain(false)
         setTimeout(() => threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' }), 100)
+      } else {
+        const err = await res.json().catch(() => ({}))
+        console.error('Failed to post comment:', res.status, err)
       }
     } finally {
       setPosting(false)

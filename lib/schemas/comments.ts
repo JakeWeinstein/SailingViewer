@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const CreateCommentSchema = z.object({
-  video_id: z.string().uuid().optional(),
+  video_id: z.string().min(1).optional(),
   session_id: z.string().uuid().optional(),
   timestamp_seconds: z.number().nonnegative().optional(),
   comment_text: z.string().min(1, 'Comment cannot be empty').max(5000).trim(),
@@ -19,7 +19,7 @@ export const EditCommentSchema = z.object({
 export type EditComment = z.infer<typeof EditCommentSchema>
 
 export const CommentQuerySchema = z.object({
-  videoId: z.string().uuid().optional(),
+  videoId: z.string().min(1).optional(),
   sessionId: z.string().uuid().optional(),
   captainOnly: z
     .string()
