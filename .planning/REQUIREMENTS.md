@@ -12,7 +12,7 @@
 - [x] **VID-03**: User can navigate chapters (timestamp markers) on reference videos to jump to specific moments
 - [x] **VID-04**: Multi-part YouTube videos transition seamlessly between parts within a chapter sequence
 - [x] **VID-05**: Video player displays properly on mobile (sizing, fullscreen, controls)
-- [ ] **VID-06**: User can bookmark specific timestamps in videos for personal reference
+- [x] **VID-06**: User can bookmark specific timestamps in videos for personal reference
 
 ### Auth & Users
 
@@ -20,7 +20,7 @@
 - [x] **AUTH-02**: User can log in with username and password
 - [x] **AUTH-03**: Three roles exist: Captain (admin), Contributor (edit reference/articles), Viewer (watch/comment)
 - [x] **AUTH-04**: Captain can view and manage all user accounts and assign roles
-- [ ] **AUTH-05**: User can @mention other users in comments, articles, and Q&A posts
+- [x] **AUTH-05**: User can @mention other users in comments, articles, and Q&A posts
 - [x] **AUTH-06**: JWT auth with secure token validation (reject malformed tokens, no role defaulting)
 
 ### Comments & Interaction
@@ -28,8 +28,8 @@
 - [x] **COMM-01**: User can leave timestamped comments on practice videos
 - [x] **COMM-02**: User can reply to comments in threaded conversations
 - [x] **COMM-03**: User can flag a comment with "send to captain for review"
-- [ ] **COMM-04**: User receives in-app notifications for @mentions and captain responses
-- [ ] **COMM-05**: Notification bell shows unread count badge
+- [x] **COMM-04**: User receives in-app notifications for @mentions and captain responses
+- [x] **COMM-05**: Notification bell shows unread count badge
 
 ### Review & Presentation
 
@@ -43,9 +43,9 @@
 
 ### Q&A
 
-- [ ] **QA-01**: User can create Q&A posts with rich text and link/image/video attachments
-- [ ] **QA-02**: Q&A posts appear in captain's review queue alongside flagged comments
-- [ ] **QA-03**: Users can reply to Q&A posts in threads
+- [x] **QA-01**: User can create Q&A posts with rich text and link/image/video attachments
+- [x] **QA-02**: Q&A posts appear in captain's review queue alongside flagged comments
+- [x] **QA-03**: Users can reply to Q&A posts in threads
 
 ### Content & Reference
 
@@ -123,13 +123,13 @@
 | CONT-05 | Phase 3 | Complete |
 | CONT-06 | Phase 3 | Complete |
 | CONT-07 | Phase 3 | Complete |
-| QA-01 | Phase 4 | Pending |
-| QA-02 | Phase 4 | Pending |
-| QA-03 | Phase 4 | Pending |
-| AUTH-05 | Phase 4 | Pending |
-| COMM-04 | Phase 4 | Pending |
-| COMM-05 | Phase 4 | Pending |
-| VID-06 | Phase 4 | Pending |
+| QA-01 | Phase 4 | Complete |
+| QA-02 | Phase 4 | Complete |
+| QA-03 | Phase 4 | Complete |
+| AUTH-05 | Phase 4 | Complete |
+| COMM-04 | Phase 4 | Complete |
+| COMM-05 | Phase 4 | Complete |
+| VID-06 | Phase 4 | Complete |
 | REV-01 | Phase 5 | Pending |
 | REV-02 | Phase 5 | Pending |
 | REV-03 | Phase 5 | Pending |

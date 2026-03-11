@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Phase 4 context gathered
-last_updated: "2026-03-11T01:27:50.033Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-11T02:17:07.765Z"
 last_activity: 2026-03-11 — 03-04 Phase 3 end-to-end verification approved
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 15
+  completed_plans: 12
   percent: 75
 ---
 
@@ -62,6 +62,7 @@ Progress: [████████████░░░░] 75% (plans: 11 of ~
 | Phase 03-core-content P02 | 5 | 2 tasks | 4 files |
 | Phase 03-core-content P03 | 7 | 3 tasks | 9 files |
 | Phase 03-core-content P04 | 9 | 2 tasks | 4 files |
+| Phase 04-engagement P01 | 2 | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -108,6 +109,9 @@ Recent decisions affecting current work:
 - [Phase 03-core-content]: Inline chapter add available to any authenticated user (trust-based, per plan decision)
 - [Phase 03-core-content]: effectiveCaptain = isCaptain || userRole='captain' — covers both prop paths without breaking existing callers
 - [Phase 03-core-content]: Flagged count in dashboard derived from reviewComments (already fetched) — avoids extra API call
+- [Phase 04-engagement]: Fire-and-forget notification creation (.catch(() => {})) — response never fails due to notification errors
+- [Phase 04-engagement]: mention-utils.ts NOT server-only — supabase client passed as param so parseMentions importable on client for rendering
+- [Phase 04-engagement]: Q&A top-level posts (no video_id AND no parent_id) force send_to_captain=true server-side
 
 ### Pending Todos
 
@@ -120,6 +124,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T01:27:50.030Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-engagement/04-CONTEXT.md
+Last session: 2026-03-11T02:17:07.763Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: None
