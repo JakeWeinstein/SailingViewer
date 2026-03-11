@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo, Suspense } from 'react'
+import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react'
 import { Anchor, Loader2, Heart, MessageCircle, Play, ChevronDown, ChevronRight, BookOpen, GraduationCap, MessageSquare } from 'lucide-react'
 import VideoWatchView from '@/components/VideoWatchView'
 import ReferenceManager from '@/components/ReferenceManager'
@@ -53,6 +53,7 @@ export default function TeamFormPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
   const [initialRefId, setInitialRefId] = useState<string | null>(null)
+  const pendingDeepLink = useRef<{ sessionId: string; videoId: string; startSeconds?: number } | null>(null)
 
   // Auth state for login/dashboard button
   const [authUser, setAuthUser] = useState<{ role: string; userName?: string } | null | undefined>(undefined)
@@ -108,8 +109,9 @@ export default function TeamFormPage() {
     } else if (viewParam === 'reference') {
       setMainView('reference')
       const refParam = params.get('ref')
+      const chapterParam = params.get('chapter')
       if (refParam) {
-        setInitialRefId(refParam)
+        setInitialRefId(chapterParam || refParam)
       }
     } else if (viewParam === 'learn') {
       setMainView('learn')
@@ -118,21 +120,7 @@ export default function TeamFormPage() {
     if (videoParam && sessionParam) {
       const tParam = params.get('t')
       const startSeconds = tParam ? parseInt(tParam, 10) : undefined
-      // Will be resolved once sessions are loaded
-      const checkAndOpen = () => {
-        setSessions((prev) => {
-          const targetSession = prev.find((s) => s.id === sessionParam)
-          if (targetSession) {
-            const targetVideo = targetSession.videos.find((v) => v.id === videoParam)
-            if (targetVideo) {
-              setWatchTarget({ video: targetVideo, sessionId: sessionParam, startSeconds })
-            }
-          }
-          return prev
-        })
-      }
-      // Delay slightly to allow sessions to load
-      setTimeout(checkAndOpen, 500)
+      pendingDeepLink.current = { sessionId: sessionParam, videoId: videoParam, startSeconds }
     }
 
     // Clear URL params to prevent re-triggering on refresh
@@ -149,6 +137,18 @@ export default function TeamFormPage() {
           setSessions(data)
           const active = data.find((s: BrowseSession) => s.is_active)
           if (active) setExpandedSessions(new Set([active.id]))
+          // Resolve pending deep-link now that sessions are loaded
+          if (pendingDeepLink.current) {
+            const { sessionId, videoId, startSeconds } = pendingDeepLink.current
+            const targetSession = data.find((s: BrowseSession) => s.id === sessionId)
+            if (targetSession) {
+              const targetVideo = targetSession.videos.find((v: SessionVideo) => v.id === videoId)
+              if (targetVideo) {
+                setWatchTarget({ video: targetVideo, sessionId, startSeconds })
+              }
+            }
+            pendingDeepLink.current = null
+          }
         }
       })
       .finally(() => setLoading(false))
