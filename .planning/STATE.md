@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-03-11T03:42:47.040Z"
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-03-11T04:00:00.000Z"
 last_activity: 2026-03-11 — 03-04 Phase 3 end-to-end verification approved
 progress:
   total_phases: 5
@@ -67,6 +67,7 @@ Progress: [████████████░░░░] 75% (plans: 11 of ~
 | Phase 04-engagement P03 | 6 | 2 tasks | 6 files |
 | Phase 05-presentation-and-search P00 | 5 | 2 tasks | 6 files |
 | Phase 05-presentation-and-search P01 | 22 | 2 tasks | 10 files |
+| Phase 05-presentation-and-search P02 | 25 | 3 tasks | 6 files |
 | Phase 05-presentation-and-search P03 | 3 | 1 tasks | 5 files |
 
 ## Accumulated Context
@@ -126,6 +127,9 @@ Recent decisions affecting current work:
 - [Phase 05-presentation-and-search]: Dual-schema dispatch in PATCH /api/comments/[id]: EditCommentSchema first, ReviewCommentSchema second — preserves edit flow while adding captain review path
 - [Phase 05-presentation-and-search]: search_all RPC uses lateral jsonb subquery for article snippets to extract clean text from blocks (avoids raw JSON noise)
 - [Phase 05-presentation-and-search]: Carry-forward adds .eq('is_reviewed', false) filter and resets sort_order=null — only unreviewed items move to new session
+- [Phase 05-presentation-and-search]: PresentationQueue renders DndContext per author group; reordered items merged back into full list before PATCH /api/comments/reorder
+- [Phase 05-presentation-and-search]: ReferenceSidePanel fetches data on open not mount; own playerRef+div ID per video prevents YT API state conflict with main player
+- [Phase 05-presentation-and-search]: Comment type extended with is_reviewed/sort_order/reviewed_at fields in lib/types.ts
 - [Phase 05-presentation-and-search]: GlobalSearchBar wrapped in Suspense per-usage-site (not layout.tsx) per Research Option 2
 - [Phase 05-presentation-and-search]: Scroll restoration uses sessionStorage key scroll:{pathname}{search} — saved before navigate, restored on mount
 

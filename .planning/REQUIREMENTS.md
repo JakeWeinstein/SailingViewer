@@ -34,11 +34,11 @@
 ### Review & Presentation
 
 - [x] **REV-01**: Captain can view review queue of all flagged comments and Q&A posts
-- [ ] **REV-02**: Captain can filter/group review queue by individual sailor
-- [ ] **REV-03**: Captain can respond to flagged comments and Q&A items
-- [ ] **REV-04**: Presentation mode displays review queue on big screen, grouped by person
+- [x] **REV-02**: Captain can filter/group review queue by individual sailor
+- [x] **REV-03**: Captain can respond to flagged comments and Q&A items
+- [x] **REV-04**: Presentation mode displays review queue on big screen, grouped by person
 - [x] **REV-05**: Captain can reorder items in the presentation queue
-- [ ] **REV-06**: Captain can pull up reference videos during presentation mode
+- [x] **REV-06**: Captain can pull up reference videos during presentation mode
 - [x] **REV-07**: Captain can mark review items as "reviewed" to clear from active queue
 
 ### Q&A
@@ -131,11 +131,11 @@
 | COMM-05 | Phase 4 | Complete |
 | VID-06 | Phase 4 | Complete |
 | REV-01 | Phase 5 | Complete |
-| REV-02 | Phase 5 | Pending |
-| REV-03 | Phase 5 | Pending |
-| REV-04 | Phase 5 | Pending |
+| REV-02 | Phase 5 | Complete |
+| REV-03 | Phase 5 | Complete |
+| REV-04 | Phase 5 | Complete |
 | REV-05 | Phase 5 | Complete |
-| REV-06 | Phase 5 | Pending |
+| REV-06 | Phase 5 | Complete |
 | REV-07 | Phase 5 | Complete |
 | CONT-08 | Phase 5 | Complete |
 
