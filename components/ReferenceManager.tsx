@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, Trash2, Play, BookOpen, Youtube, X, FolderOpen, ChevronDown, Film, Scissors, Layers } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Plus, Trash2, Play, BookOpen, Youtube, X, FolderOpen, ChevronDown, Film, Scissors, Layers, Tag } from 'lucide-react'
 import VideoWatchView from './VideoWatchView'
 import FolderManager from './FolderManager'
 import ChapterEditor from './ChapterEditor'
@@ -10,6 +10,7 @@ import {
   type ReferenceFolder,
   type SessionVideo,
   formatTime,
+  parseTimestamp,
   youtubeThumbnailUrl,
   extractYouTubeInfo,
 } from '@/lib/types'
@@ -38,8 +39,19 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
   const [showFolderManager, setShowFolderManager] = useState(false)
   const [isDragOverUnfoldered, setIsDragOverUnfoldered] = useState(false)
 
+  // Tag filter state
+  const [allTags, setAllTags] = useState<string[]>([])
+  const [activeFilterTags, setActiveFilterTags] = useState<string[]>([])
+
   // Chapter editor
   const [chapterSource, setChapterSource] = useState<ReferenceVideo | null>(null)
+
+  // Inline chapter add form
+  const [inlineChapterParentId, setInlineChapterParentId] = useState<string | null>(null)
+  const [inlineChapterTitle, setInlineChapterTitle] = useState('')
+  const [inlineChapterTimestamp, setInlineChapterTimestamp] = useState('')
+  const [inlineChapterAdding, setInlineChapterAdding] = useState(false)
+  const [inlineChapterError, setInlineChapterError] = useState('')
 
   // Add form
   const [showAdd, setShowAdd] = useState(false)
@@ -49,6 +61,12 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
   const [addFolderId, setAddFolderId] = useState<string>('')
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState('')
+
+  // Tag editing state (per-video inline editor)
+  const [editingTagVideoId, setEditingTagVideoId] = useState<string | null>(null)
+  const [tagInputValue, setTagInputValue] = useState('')
+  const [tagAutocomplete, setTagAutocomplete] = useState<string[]>([])
+  const tagInputRef = useRef<HTMLInputElement>(null)
 
   // Practice library picker
   const [practiceSearch, setPracticeSearch] = useState('')
@@ -62,9 +80,11 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
     Promise.all([
       fetch('/api/reference-videos').then((r) => r.json()),
       fetch('/api/reference-folders').then((r) => r.json()),
-    ]).then(([vids, flds]) => {
+      fetch('/api/reference-videos?allTags=true').then((r) => r.json()),
+    ]).then(([vids, flds, tags]) => {
       if (Array.isArray(vids)) setVideos(vids)
       if (Array.isArray(flds)) setFolders(flds)
+      if (Array.isArray(tags)) setAllTags(tags)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -77,6 +97,29 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
         .finally(() => setPracticeLoading(false))
     }
   }, [addType, practiceSessions.length])
+
+  // Re-fetch videos when tag filter changes
+  useEffect(() => {
+    const url = activeFilterTags.length > 0
+      ? `/api/reference-videos?tags=${activeFilterTags.join(',')}`
+      : '/api/reference-videos'
+    fetch(url)
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setVideos(data) })
+  }, [activeFilterTags])
+
+  // Tag autocomplete: filter allTags by current input
+  useEffect(() => {
+    if (!tagInputValue.trim()) {
+      setTagAutocomplete([])
+      return
+    }
+    const input = tagInputValue.trim().toLowerCase()
+    const filtered = allTags.filter(
+      (t) => t.includes(input) && t !== input
+    )
+    setTagAutocomplete(filtered.slice(0, 8))
+  }, [tagInputValue, allTags])
 
   // Helper: count chapters for a given source video
   function getChapterCount(sourceId: string): number {
@@ -121,6 +164,7 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
           title,
           type,
           video_ref,
+          tags: [],
           note_timestamp: note_timestamp ?? null,
           folder_id: addFolderId || null,
         }),
@@ -172,6 +216,112 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
     setChapterSource(null)
   }
 
+  // ── Tag filter chip toggle ─────────────────────────────────────────────────
+  function toggleFilterTag(tag: string) {
+    setActiveFilterTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    )
+  }
+
+  // ── Per-video tag management ──────────────────────────────────────────────
+  function openTagEditor(videoId: string) {
+    setEditingTagVideoId(videoId)
+    setTagInputValue('')
+    setTagAutocomplete([])
+    setTimeout(() => tagInputRef.current?.focus(), 50)
+  }
+
+  async function addTagToVideo(videoId: string, newTag: string) {
+    const normalizedTag = newTag.trim().toLowerCase()
+    if (!normalizedTag) return
+    const video = videos.find((v) => v.id === videoId)
+    if (!video) return
+    if (video.tags?.includes(normalizedTag)) return
+
+    const updatedTags = [...(video.tags ?? []), normalizedTag]
+    setVideos((prev) => prev.map((v) => v.id === videoId ? { ...v, tags: updatedTags } : v))
+    setTagInputValue('')
+    setTagAutocomplete([])
+
+    // Add to allTags if new
+    if (!allTags.includes(normalizedTag)) {
+      setAllTags((prev) => [...prev, normalizedTag].sort())
+    }
+
+    await fetch(`/api/reference-videos/${videoId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: updatedTags }),
+    })
+  }
+
+  async function removeTagFromVideo(videoId: string, tag: string) {
+    const video = videos.find((v) => v.id === videoId)
+    if (!video) return
+    const updatedTags = (video.tags ?? []).filter((t) => t !== tag)
+    setVideos((prev) => prev.map((v) => v.id === videoId ? { ...v, tags: updatedTags } : v))
+
+    await fetch(`/api/reference-videos/${videoId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: updatedTags }),
+    })
+  }
+
+  // ── Inline chapter add ─────────────────────────────────────────────────────
+  function openInlineChapterAdd(parentId: string) {
+    setInlineChapterParentId(parentId)
+    setInlineChapterTitle('')
+    setInlineChapterTimestamp('')
+    setInlineChapterError('')
+  }
+
+  async function handleInlineChapterAdd() {
+    if (!inlineChapterParentId) return
+    if (!inlineChapterTitle.trim()) {
+      setInlineChapterError('Title is required.')
+      return
+    }
+
+    let start_seconds: number | null = null
+    if (inlineChapterTimestamp.trim()) {
+      start_seconds = parseTimestamp(inlineChapterTimestamp.trim())
+      if (start_seconds === null) {
+        setInlineChapterError('Invalid timestamp. Use MM:SS or HH:MM:SS format.')
+        return
+      }
+    }
+
+    setInlineChapterAdding(true)
+    setInlineChapterError('')
+    try {
+      const res = await fetch('/api/reference-videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: inlineChapterTitle.trim(),
+          type: 'youtube',
+          video_ref: '', // will be inherited from parent
+          parent_video_id: inlineChapterParentId,
+          start_seconds,
+          tags: [],
+        }),
+      })
+      if (res.ok) {
+        const newChapter = await res.json()
+        setVideos((prev) => [...prev, newChapter])
+        setInlineChapterParentId(null)
+        setInlineChapterTitle('')
+        setInlineChapterTimestamp('')
+      } else {
+        const err = await res.json()
+        setInlineChapterError(err.error ?? 'Failed to add chapter.')
+      }
+    } finally {
+      setInlineChapterAdding(false)
+    }
+  }
+
   // Organize videos into folder hierarchy
   const topFolders = folders.filter((f) => !f.parent_id).sort((a, b) => a.sort_order - b.sort_order)
   const getSubFolders = (pid: string) => folders.filter((f) => f.parent_id === pid).sort((a, b) => a.sort_order - b.sort_order)
@@ -203,11 +353,6 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
     // Collect IDs of all chapter videos in this folder
     const chapterIdsInFolder = new Set(
       folderVideos.filter((v) => v.parent_video_id).map((v) => v.id)
-    )
-
-    // Collect parent IDs that have chapters in this folder
-    const parentIdsWithChapters = new Set(
-      folderVideos.filter((v) => v.parent_video_id).map((v) => v.parent_video_id!)
     )
 
     // Process non-chapter videos first
@@ -250,10 +395,98 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
     return result
   }
 
+  // ── VideoTagEditor component ──────────────────────────────────────────────
+  function VideoTagEditor({ video }: { video: ReferenceVideo }) {
+    const isEditing = editingTagVideoId === video.id
+    const tags = video.tags ?? []
+
+    return (
+      <div className="px-3 pb-2.5">
+        {/* Existing tags as removable chips */}
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-1.5">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800"
+              >
+                {tag}
+                <button
+                  onClick={() => removeTagFromVideo(video.id, tag)}
+                  className="ml-0.5 hover:text-red-600"
+                  aria-label={`Remove tag ${tag}`}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Tag input */}
+        {isEditing ? (
+          <div className="relative">
+            <input
+              ref={tagInputRef}
+              type="text"
+              value={tagInputValue}
+              onChange={(e) => setTagInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  addTagToVideo(video.id, tagInputValue)
+                } else if (e.key === 'Escape') {
+                  setEditingTagVideoId(null)
+                  setTagInputValue('')
+                }
+              }}
+              onBlur={() => {
+                // Slight delay to allow autocomplete click to register
+                setTimeout(() => {
+                  setEditingTagVideoId(null)
+                  setTagInputValue('')
+                }, 150)
+              }}
+              placeholder="Add tag…"
+              className="w-full px-2 py-1 text-xs border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            {tagAutocomplete.length > 0 && (
+              <div className="absolute z-20 left-0 top-full mt-0.5 bg-white shadow-lg rounded border border-gray-200 max-h-40 overflow-y-auto w-full min-w-[120px]">
+                {tagAutocomplete.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    onMouseDown={(e) => {
+                      e.preventDefault() // prevent blur
+                      addTagToVideo(video.id, suggestion)
+                    }}
+                    className="w-full text-left px-2 py-1 text-xs hover:bg-blue-50 text-gray-700"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={() => openTagEditor(video.id)}
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-500 transition-colors"
+          >
+            <Tag className="h-3 w-3" />
+            <span>{tags.length === 0 ? 'Add tags' : 'Edit tags'}</span>
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  // ── VideoCard component ────────────────────────────────────────────────────
   function VideoCard({ video }: { video: ReferenceVideo }) {
     const thumb = youtubeThumbnailUrl(video.video_ref)
     const isChapter = !!video.parent_video_id
     const chapterCount = !isChapter ? getChapterCount(video.id) : 0
+    const showInlineChapterForm = inlineChapterParentId === video.id
+
     return (
       <div
         draggable={isCaptain}
@@ -305,18 +538,33 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
             {video.note && <p className="text-xs text-amber-600 mt-0.5 truncate">📝 {video.note}</p>}
           </div>
         </button>
+
+        {/* Tag display / editor — visible to all logged-in users */}
+        <VideoTagEditor video={video} />
+
+        {/* Captain actions */}
         {isCaptain && (
           <div className="px-3 pb-2.5 flex items-center justify-between">
             {/* Create chapters button — only for non-chapter videos */}
             {!isChapter && (
-              <button
-                onClick={() => setChapterSource(video)}
-                className="flex items-center gap-1 text-xs text-purple-500 hover:text-purple-700 transition-colors"
-                title="Create chapters"
-              >
-                <Scissors className="h-3 w-3" />
-                <span className="hidden sm:inline">Chapters</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setChapterSource(video)}
+                  className="flex items-center gap-1 text-xs text-purple-500 hover:text-purple-700 transition-colors"
+                  title="Create chapters with ChapterEditor"
+                >
+                  <Scissors className="h-3 w-3" />
+                  <span className="hidden sm:inline">Chapters</span>
+                </button>
+                <button
+                  onClick={() => openInlineChapterAdd(video.id)}
+                  className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-600 transition-colors"
+                  title="Quick add chapter"
+                >
+                  <Plus className="h-3 w-3" />
+                  <span className="hidden sm:inline">Add</span>
+                </button>
+              </div>
             )}
             {isChapter && <span />}
             <button
@@ -326,6 +574,44 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
+          </div>
+        )}
+
+        {/* Inline chapter add form */}
+        {showInlineChapterForm && (
+          <div className="px-3 pb-3 border-t border-purple-100 bg-purple-50/50 space-y-2 pt-2">
+            <p className="text-xs font-medium text-purple-700">Quick add chapter</p>
+            <input
+              type="text"
+              value={inlineChapterTitle}
+              onChange={(e) => setInlineChapterTitle(e.target.value)}
+              placeholder="Chapter title"
+              autoFocus
+              className="w-full px-2 py-1 text-xs border border-purple-200 rounded focus:outline-none focus:ring-1 focus:ring-purple-400"
+            />
+            <input
+              type="text"
+              value={inlineChapterTimestamp}
+              onChange={(e) => setInlineChapterTimestamp(e.target.value)}
+              placeholder="Timestamp (MM:SS)"
+              className="w-full px-2 py-1 text-xs border border-purple-200 rounded focus:outline-none focus:ring-1 focus:ring-purple-400"
+            />
+            {inlineChapterError && <p className="text-xs text-red-500">{inlineChapterError}</p>}
+            <div className="flex gap-1.5">
+              <button
+                onClick={handleInlineChapterAdd}
+                disabled={inlineChapterAdding}
+                className="flex-1 px-2 py-1 text-xs font-medium bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50"
+              >
+                {inlineChapterAdding ? 'Adding…' : 'Add chapter'}
+              </button>
+              <button
+                onClick={() => setInlineChapterParentId(null)}
+                className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -469,6 +755,35 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
         </div>
       </div>
 
+      {/* Tag filter chips */}
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-xs font-medium text-gray-500">Filter by tag:</span>
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => toggleFilterTag(tag)}
+              className={clsx(
+                'px-2 py-0.5 rounded-full text-sm transition-colors',
+                activeFilterTags.includes(tag)
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              )}
+            >
+              {tag}
+            </button>
+          ))}
+          {activeFilterTags.length > 0 && (
+            <button
+              onClick={() => setActiveFilterTags([])}
+              className="text-xs text-gray-400 hover:text-gray-600 ml-1"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Folder manager */}
       {showFolderManager && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
@@ -513,7 +828,7 @@ export default function ReferenceManager({ isCaptain = false, userName = 'Captai
               />
               {addType === 'youtube' && ytInfo && (
                 <p className="text-xs text-green-600">
-                  ✓ Video ID: {ytInfo.id}
+                  Video ID: {ytInfo.id}
                   {ytInfo.startSeconds != null ? ` · starts at ${formatTime(ytInfo.startSeconds)}` : ''}
                 </p>
               )}
