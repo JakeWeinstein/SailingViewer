@@ -54,6 +54,8 @@ export default function TeamFormPage() {
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
   const [initialRefId, setInitialRefId] = useState<string | null>(null)
   const pendingDeepLink = useRef<{ sessionId: string; videoId: string; startSeconds?: number } | null>(null)
+  const [qaEverVisited, setQaEverVisited] = useState(false)
+  const learnLoaded = useRef(false)
 
   // Auth state for login/dashboard button
   const [authUser, setAuthUser] = useState<{ role: string; userName?: string } | null | undefined>(undefined)
@@ -106,6 +108,7 @@ export default function TeamFormPage() {
 
     if (viewParam === 'qa') {
       setMainView('qa')
+      setQaEverVisited(true)
     } else if (viewParam === 'reference') {
       setMainView('reference')
       const refParam = params.get('ref')
@@ -115,6 +118,17 @@ export default function TeamFormPage() {
       }
     } else if (viewParam === 'learn') {
       setMainView('learn')
+      learnLoaded.current = true
+    } else {
+      // No URL view param — restore from sessionStorage
+      try {
+        const saved = sessionStorage.getItem('tf_main_view')
+        if (saved && ['sessions', 'reference', 'learn', 'qa'].includes(saved)) {
+          setMainView(saved as MainView)
+          if (saved === 'learn') learnLoaded.current = true
+          if (saved === 'qa') setQaEverVisited(true)
+        }
+      } catch {}
     }
 
     if (videoParam && sessionParam) {
@@ -137,6 +151,11 @@ export default function TeamFormPage() {
       window.history.replaceState({}, '', '/')
     }
   }, [])
+
+  // Sync mainView to sessionStorage on change
+  useEffect(() => {
+    try { sessionStorage.setItem('tf_main_view', mainView) } catch {}
+  }, [mainView])
 
   useEffect(() => {
     fetch('/api/sessions/browse')
@@ -174,8 +193,18 @@ export default function TeamFormPage() {
     ).then((results) => setComments(results.flat()))
   }, [sessions])
 
+  // Track when learn/qa tabs are first visited for lazy loading
   useEffect(() => {
-    if (mainView === 'learn' && articles.length === 0) {
+    if (mainView === 'learn' && !learnLoaded.current) {
+      learnLoaded.current = true
+    }
+    if (mainView === 'qa' && !qaEverVisited) {
+      setQaEverVisited(true)
+    }
+  }, [mainView, qaEverVisited])
+
+  useEffect(() => {
+    if (mainView === 'learn' && articles.length === 0 && learnLoaded.current) {
       setArticlesLoading(true)
       fetch('/api/articles')
         .then((r) => r.json())
@@ -354,7 +383,12 @@ export default function TeamFormPage() {
           ]).map((tab) => (
             <button
               key={tab.key}
-              onClick={() => { setMainView(tab.key); setViewingArticle(null) }}
+              onClick={() => {
+                setMainView(tab.key)
+                if (tab.key !== 'learn') setViewingArticle(null)
+                if (tab.key === 'learn') learnLoaded.current = true
+                if (tab.key === 'qa') setQaEverVisited(true)
+              }}
               className={clsx(
                 'flex items-center gap-1.5 px-4 py-2 text-xs font-medium border-b-2 transition-colors',
                 mainView === tab.key
@@ -372,7 +406,7 @@ export default function TeamFormPage() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-10">
 
         {/* ── Reference Library ── */}
-        {mainView === 'reference' && (
+        <div className={mainView !== 'reference' ? 'hidden' : ''}>
           <ReferenceManager
             isCaptain={false}
             isAuthenticated={!!authUser}
@@ -381,11 +415,11 @@ export default function TeamFormPage() {
             initialVideoId={initialRefId}
             onInitialVideoHandled={() => setInitialRefId(null)}
           />
-        )}
+        </div>
 
         {/* ── Learn ── */}
-        {mainView === 'learn' && (
-          viewingArticle ? (
+        <div className={mainView !== 'learn' ? 'hidden' : ''}>
+          {viewingArticle ? (
             <div>
               <button
                 onClick={() => setViewingArticle(null)}
@@ -437,12 +471,14 @@ export default function TeamFormPage() {
                 ))}
               </div>
             </div>
-          )
-        )}
+          )}
+        </div>
 
         {/* ── Q&A ── */}
-        {mainView === 'qa' && (
-          <QATab userName={userName ?? 'Anonymous'} users={mentionUsers} />
+        {qaEverVisited && (
+          <div className={mainView !== 'qa' ? 'hidden' : ''}>
+            <QATab userName={userName ?? 'Anonymous'} users={mentionUsers} />
+          </div>
         )}
 
         {mainView === 'sessions' && loading && (
