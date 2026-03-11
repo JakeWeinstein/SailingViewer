@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   ChevronDown, ChevronRight, Film, LogOut, Shield,
   MessageSquare, Play, Grid3x3, BookOpen, Upload, FileText, Users, Anchor, Youtube,
-  CheckCircle, AlertCircle, Loader2, RefreshCw
+  CheckCircle, AlertCircle, Loader2, RefreshCw, X, Plus
 } from 'lucide-react'
 import SessionManager from './SessionManager'
 import VideoManager from './VideoManager'
@@ -68,6 +68,14 @@ export default function DashboardView({ initialSessions, userRole, userName, use
   const [articleFolders, setArticleFolders] = useState<ReferenceFolder[]>([])
   const [articlesLoading, setArticlesLoading] = useState(false)
   const [editingArticle, setEditingArticle] = useState<Article | null | 'new'>(null)
+
+  // Session lifecycle state (captain-only)
+  const [closingSession, setClosingSession] = useState(false)
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false)
+  const [nextSessionLabel, setNextSessionLabel] = useState('')
+  const [addVideoUrl, setAddVideoUrl] = useState('')
+  const [addingVideo, setAddingVideo] = useState(false)
+  const [addVideoError, setAddVideoError] = useState<string | null>(null)
 
   // YouTube state (captain-only)
   const [youtubeConnected, setYoutubeConnected] = useState<boolean | null>(null)
@@ -185,6 +193,63 @@ export default function DashboardView({ initialSessions, userRole, userName, use
     }
   }
 
+  async function handleCloseSession() {
+    if (!selectedSessionId) return
+    setClosingSession(true)
+    try {
+      const res = await fetch(`/api/sessions/${selectedSessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'close',
+          next_label: nextSessionLabel.trim() || undefined,
+        }),
+      })
+      if (res.ok) {
+        const { next } = await res.json()
+        await fetchSessions()
+        setSelectedSessionId(next.id)
+        setShowCloseConfirm(false)
+        setNextSessionLabel('')
+      }
+    } finally {
+      setClosingSession(false)
+    }
+  }
+
+  async function handleAddVideo() {
+    if (!selectedSessionId || !addVideoUrl.trim()) return
+    setAddingVideo(true)
+    setAddVideoError(null)
+    try {
+      const res = await fetch(`/api/sessions/${selectedSessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add-video', youtube_url: addVideoUrl.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setAddVideoError(data.error ?? 'Failed to add video')
+      } else {
+        // Refresh sessions to get updated video list
+        await fetchSessions()
+        setAddVideoUrl('')
+      }
+    } finally {
+      setAddingVideo(false)
+    }
+  }
+
+  // Generate next week label for close session confirmation
+  function generateNextWeekLabel() {
+    const d = new Date()
+    const dayOfWeek = d.getDay()
+    const daysUntilNextMonday = dayOfWeek === 1 ? 7 : (8 - dayOfWeek) % 7 || 7
+    d.setDate(d.getDate() + daysUntilNextMonday)
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December']
+    return `Week of ${months[d.getMonth()]} ${d.getDate()}`
+  }
+
   async function fetchSessions() {
     const res = await fetch('/api/sessions')
     if (res.ok) {
@@ -230,6 +295,15 @@ export default function DashboardView({ initialSessions, userRole, userName, use
       map.get(vid)!.comments.push(c)
     }
     return [...map.entries()].map(([videoId, { videoTitle, comments }]) => ({ videoId, videoTitle, comments }))
+  }, [reviewComments])
+
+  // Per-video flagged comment count (from already-fetched review comments)
+  const flaggedCountByVideo = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const c of reviewComments) {
+      if (c.video_id) map.set(c.video_id, (map.get(c.video_id) ?? 0) + 1)
+    }
+    return map
   }, [reviewComments])
 
   // Unique authors for the filter dropdown (include Q&A authors)
@@ -665,18 +739,108 @@ export default function DashboardView({ initialSessions, userRole, userName, use
             {/* Session header */}
             <div className="flex items-center justify-between gap-4 mb-5">
               <div>
-                <h1 className="text-lg font-bold text-gray-800">{selectedSession.label}</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-bold text-gray-800">{selectedSession.label}</h1>
+                  {selectedSession.is_active && (
+                    <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Active</span>
+                  )}
+                </div>
                 <p className="text-xs text-gray-400 mt-0.5">
                   {sessionVideos.length} video{sessionVideos.length !== 1 ? 's' : ''} &middot; {reviewComments.length} for review
                 </p>
               </div>
-              <button
-                onClick={() => setShowVideoManager((v) => !v)}
-                className="shrink-0 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
-              >
-                {showVideoManager ? 'Done' : 'Manage videos'}
-              </button>
+              <div className="flex items-center gap-2">
+                {isCaptain && selectedSession.is_active && !showCloseConfirm && (
+                  <button
+                    onClick={() => {
+                      setNextSessionLabel(generateNextWeekLabel())
+                      setShowCloseConfirm(true)
+                    }}
+                    className="shrink-0 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
+                  >
+                    Close &amp; Start Next Week
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowVideoManager((v) => !v)}
+                  className="shrink-0 text-xs font-medium text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  {showVideoManager ? 'Done' : 'Manage videos'}
+                </button>
+              </div>
             </div>
+
+            {/* Close session confirmation */}
+            {showCloseConfirm && isCaptain && (
+              <div className="mb-5 bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-amber-800">Close this session</p>
+                  <button
+                    onClick={() => setShowCloseConfirm(false)}
+                    className="text-amber-400 hover:text-amber-600 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <p className="text-xs text-amber-700">
+                  This will close the current session and create a new active session. Flagged comments will carry forward.
+                </p>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-amber-800">Next session label</label>
+                  <input
+                    type="text"
+                    value={nextSessionLabel}
+                    onChange={(e) => setNextSessionLabel(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-amber-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    placeholder="Week of..."
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCloseSession}
+                    disabled={closingSession}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-60 transition-colors"
+                  >
+                    {closingSession ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                    {closingSession ? 'Closing...' : 'Confirm & Close'}
+                  </button>
+                  <button
+                    onClick={() => setShowCloseConfirm(false)}
+                    className="px-3 py-1.5 text-xs text-gray-500 hover:bg-amber-100 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Add YouTube video URL — captain + contributor */}
+            {selectedSession.is_active && (
+              <div className="mb-5">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={addVideoUrl}
+                    onChange={(e) => { setAddVideoUrl(e.target.value); setAddVideoError(null) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddVideo() }}
+                    placeholder="Paste YouTube URL to add video..."
+                    className={clsx(
+                      'flex-1 px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
+                      addVideoError ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-white'
+                    )}
+                  />
+                  <button
+                    onClick={handleAddVideo}
+                    disabled={addingVideo || !addVideoUrl.trim()}
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-60 transition-colors"
+                  >
+                    {addingVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    Add
+                  </button>
+                </div>
+                {addVideoError && <p className="text-xs text-red-600 mt-1">{addVideoError}</p>}
+              </div>
+            )}
 
             {showVideoManager && (
               <div className="mb-5 bg-white rounded-xl border border-gray-100 shadow-sm p-5">
@@ -880,6 +1044,13 @@ export default function DashboardView({ initialSessions, userRole, userName, use
                                       <Play className="h-4 w-4 text-blue-600 fill-blue-600" />
                                     </div>
                                   </div>
+                                  {/* Flagged count badge */}
+                                  {flaggedCountByVideo.get(video.id) != null && flaggedCountByVideo.get(video.id)! > 0 && (
+                                    <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 bg-amber-500/90 text-white text-xs px-1.5 py-0.5 rounded-full">
+                                      <Shield className="h-2 w-2" />
+                                      {flaggedCountByVideo.get(video.id)}
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="p-2.5">
                                   <p className="text-xs font-medium text-gray-800 line-clamp-2 leading-snug">{video.name}</p>

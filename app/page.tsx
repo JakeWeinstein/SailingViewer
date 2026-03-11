@@ -151,6 +151,14 @@ export default function TeamFormPage() {
     return map
   }, [comments])
 
+  const flaggedCountByVideo = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const c of comments) {
+      if (c.video_id && c.send_to_captain) map.set(c.video_id, (map.get(c.video_id) ?? 0) + 1)
+    }
+    return map
+  }, [comments])
+
   const latestCommentByVideo = useMemo(() => {
     const map = new Map<string, number>()
     for (const c of comments) {
@@ -176,6 +184,7 @@ export default function TeamFormPage() {
 
   function VideoCard({ video, sessionId }: { video: SessionVideo; sessionId: string }) {
     const count = commentCountByVideo.get(video.id) ?? 0
+    const flagged = flaggedCountByVideo.get(video.id) ?? 0
     const fav = favorites.has(video.id)
     return (
       <div className="group relative bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-blue-200 transition-all">
@@ -194,10 +203,17 @@ export default function TeamFormPage() {
                 <Play className="h-5 w-5 text-blue-600 fill-blue-600" />
               </div>
             </div>
+            {/* Comment count badge */}
             {count > 0 && (
               <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded-full">
                 <MessageCircle className="h-2.5 w-2.5" />
                 {count}
+              </div>
+            )}
+            {/* Flagged for captain count badge */}
+            {flagged > 0 && (
+              <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1 bg-amber-500/90 text-white text-xs px-1.5 py-0.5 rounded-full">
+                <span className="text-[10px] font-bold">{flagged}</span>
               </div>
             )}
           </div>
