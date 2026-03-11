@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 Phase: 3 of 5 (Core Content) — COMPLETE
 Plan: 4 of 4 complete in Phase 3
 Status: Phase 3 fully verified — all 13 e2e steps approved by human
-Last activity: 2026-03-11 - Completed quick task 15: Remove redundant search bar in presentation mode, add chapter support
+Last activity: 2026-03-11 - Completed quick task 16: Fix video viewer overflow, make comments scrollable
 
 Progress: [████████████░░░░] 75% (plans: 11 of ~14 estimated — 3 phases complete)
 
@@ -163,9 +163,10 @@ None yet.
 | 13 | Fix search result navigation for chapters and reference video comments | 2026-03-11 | ecb412e | [13-fix-search-result-navigation-for-chapter](./quick/13-fix-search-result-navigation-for-chapter/) |
 | 14 | Persist UI state across tab switches (tab + folder open/close) | 2026-03-11 | 43f1223 | [14-persist-ui-state-across-tab-switches-vid](./quick/14-persist-ui-state-across-tab-switches-vid/) |
 | 15 | Remove redundant search bar in presentation mode, add chapter support | 2026-03-11 | d41592c | [15-remove-redundant-search-bar-in-presentat](./quick/15-remove-redundant-search-bar-in-presentat/) |
+| 16 | Fix video viewer overflow, make comments scrollable | 2026-03-11 | f4bdac5 | [16-fix-video-viewer-overflow-make-comments-](./quick/16-fix-video-viewer-overflow-make-comments-/) |
 
 ## Session Continuity
 
-Last session: 2026-03-11T22:11:16Z
-Stopped at: Completed quick task 15
+Last session: 2026-03-11T23:57:04Z
+Stopped at: Completed quick task 16
 Resume file: None
