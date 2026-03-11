@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed quick task 11
-last_updated: "2026-03-11T21:13:29Z"
-last_activity: "2026-03-11 - Completed quick task 12: Fix search result navigation for chapters"
+stopped_at: Completed quick task 13
+last_updated: "2026-03-11T21:44:37Z"
+last_activity: "2026-03-11 - Completed quick task 13: Fix search result navigation for chapters and comments"
 progress:
   total_phases: 5
   completed_phases: 5
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 Phase: 3 of 5 (Core Content) — COMPLETE
 Plan: 4 of 4 complete in Phase 3
 Status: Phase 3 fully verified — all 13 e2e steps approved by human
-Last activity: 2026-03-11 - Completed quick task 12: Fix search result navigation for chapters
+Last activity: 2026-03-11 - Completed quick task 13: Fix search result navigation for chapters and comments
 
 Progress: [████████████░░░░] 75% (plans: 11 of ~14 estimated — 3 phases complete)
 
@@ -160,9 +160,10 @@ None yet.
 | 10 | Fix search results not jumping to correct timestamp | 2026-03-11 | cd004d1 | [10-fix-search-results-not-jumping-to-correc](./quick/10-fix-search-results-not-jumping-to-correc/) |
 | 11 | Add search bar to presentation mode sidebar | 2026-03-11 | 0322e85 | [11-add-search-bar-to-presentation-view-that](./quick/11-add-search-bar-to-presentation-view-that/) |
 | 12 | Fix search result navigation: chapters not selecting correct chapter, comments going to homepage | 2026-03-11 | 3af8770 | [12-fix-search-result-navigation-chapters-no](./quick/12-fix-search-result-navigation-chapters-no/) |
+| 13 | Fix search result navigation for chapters and reference video comments | 2026-03-11 | ecb412e | [13-fix-search-result-navigation-for-chapter](./quick/13-fix-search-result-navigation-for-chapter/) |
 
 ## Session Continuity
 
-Last session: 2026-03-11T21:13:29Z
-Stopped at: Completed quick task 12
+Last session: 2026-03-11T21:44:37Z
+Stopped at: Completed quick task 13
 Resume file: None
