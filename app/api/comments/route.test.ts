@@ -459,18 +459,20 @@ describe('DELETE /api/comments/[id]', () => {
     const mockDelete = vi.fn().mockReturnValue({
       eq: vi.fn().mockResolvedValue({ error: null }),
     })
-    vi.mocked(supabase.from).mockReturnValueOnce({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: { id: COMMENT_ID, author_id: AUTHOR_ID },
-            error: null,
+    // DELETE route: 3 from() calls — select, delete replies, delete comment
+    vi.mocked(supabase.from)
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: { id: COMMENT_ID, author_id: AUTHOR_ID },
+              error: null,
+            }),
           }),
         }),
-      }),
-    } as never).mockReturnValueOnce({
-      delete: mockDelete,
-    } as never)
+      } as never)
+      .mockReturnValueOnce({ delete: mockDelete } as never)
+      .mockReturnValueOnce({ delete: mockDelete } as never)
 
     const { DELETE } = await import('./[id]/route')
     const req = makeDeleteRequest(COMMENT_ID)
@@ -490,18 +492,20 @@ describe('DELETE /api/comments/[id]', () => {
     const mockDelete = vi.fn().mockReturnValue({
       eq: vi.fn().mockResolvedValue({ error: null }),
     })
-    vi.mocked(supabase.from).mockReturnValueOnce({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: vi.fn().mockResolvedValue({
-            data: { id: COMMENT_ID, author_id: AUTHOR_ID },
-            error: null,
+    // DELETE route: 3 from() calls — select, delete replies, delete comment
+    vi.mocked(supabase.from)
+      .mockReturnValueOnce({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: { id: COMMENT_ID, author_id: AUTHOR_ID },
+              error: null,
+            }),
           }),
         }),
-      }),
-    } as never).mockReturnValueOnce({
-      delete: mockDelete,
-    } as never)
+      } as never)
+      .mockReturnValueOnce({ delete: mockDelete } as never)
+      .mockReturnValueOnce({ delete: mockDelete } as never)
 
     const { DELETE } = await import('./[id]/route')
     const req = makeDeleteRequest(COMMENT_ID)

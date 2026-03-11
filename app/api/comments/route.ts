@@ -1,21 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { verifyToken, COOKIE_NAME } from '@/lib/auth'
+import { getTokenPayload } from '@/lib/auth'
+import { CreateCommentSchema, CommentQuerySchema } from '@/lib/schemas/comments'
 
 // GET /api/comments?videoId=&sessionId=&captainOnly=true&type=qa&parentId=
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const videoId = searchParams.get('videoId')
-  const sessionId = searchParams.get('sessionId')
-  const captainOnly = searchParams.get('captainOnly') === 'true'
-  const type = searchParams.get('type')
-  const parentId = searchParams.get('parentId')
+
+  const rawQuery = {
+    videoId: searchParams.get('videoId') ?? undefined,
+    sessionId: searchParams.get('sessionId') ?? undefined,
+    captainOnly: searchParams.get('captainOnly') ?? undefined,
+    type: searchParams.get('type') ?? undefined,
+    parentId: searchParams.get('parentId') ?? undefined,
+  }
+
+  const parsed = CommentQuerySchema.safeParse(rawQuery)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid query params', details: parsed.error.flatten().fieldErrors }, { status: 400 })
+  }
+  const { videoId, sessionId, captainOnly, type, parentId } = parsed.data
 
   if (captainOnly) {
-    const token = req.cookies.get(COOKIE_NAME)?.value
-    if (!token || !(await verifyToken(token))) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const payload = await getTokenPayload(req)
+    if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   // Fetch replies for a specific parent
@@ -29,7 +37,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data)
   }
 
-  // Fetch top-level Q&A posts
+  // Fetch top-level Q&A posts (no video_id)
   if (type === 'qa') {
     let query = supabase
       .from('comments')
@@ -42,7 +50,6 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Fetch reply counts for these posts
     if (data && data.length > 0) {
       const ids = data.map((c: { id: string }) => c.id)
       const { data: replyCounts } = await supabase
@@ -61,7 +68,12 @@ export async function GET(req: NextRequest) {
   }
 
   // Default: fetch comments for a video (top-level only, with reply counts)
-  let query = supabase.from('comments').select('*').is('parent_id', null).order('created_at', { ascending: true })
+  let query = supabase
+    .from('comments')
+    .select('*')
+    .is('parent_id', null)
+    .order('created_at', { ascending: true })
+
   if (videoId) query = query.eq('video_id', videoId)
   if (sessionId) query = query.eq('session_id', sessionId)
   if (captainOnly) query = query.eq('send_to_captain', true)
@@ -69,7 +81,6 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Fetch reply counts
   if (data && data.length > 0) {
     const ids = data.map((c: { id: string }) => c.id)
     const { data: replyCounts } = await supabase
@@ -87,31 +98,29 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(data)
 }
 
-// POST /api/comments — public
+// POST /api/comments — auth required
 export async function POST(req: NextRequest) {
+  const payload = await getTokenPayload(req)
+  if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const body = await req.json()
-  const { session_id, video_id, video_title, author_name, timestamp_seconds, comment_text, send_to_captain, parent_id } = body
-
-  if (!author_name?.trim() || !comment_text?.trim()) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  const parsed = CreateCommentSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors }, { status: 400 })
   }
 
-  // For non-reply, non-QA posts, video_id is required
-  if (!parent_id && video_id === undefined && !body.is_qa) {
-    // It's a Q&A post if video_id is explicitly null/undefined and is_qa is set
-    // Otherwise require video_id
-  }
+  const { video_id, session_id, timestamp_seconds, comment_text, send_to_captain, parent_id } = parsed.data
 
   const { data, error } = await supabase
     .from('comments')
     .insert({
-      session_id: session_id ?? null,
+      author_id: payload.userId,
+      author_name: payload.userName,
       video_id: video_id ?? null,
-      video_title: video_title ?? null,
-      author_name: author_name.trim(),
+      session_id: session_id ?? null,
       timestamp_seconds: timestamp_seconds ?? null,
-      comment_text: comment_text.trim(),
-      send_to_captain: !!send_to_captain,
+      comment_text,
+      send_to_captain,
       parent_id: parent_id ?? null,
     })
     .select()
