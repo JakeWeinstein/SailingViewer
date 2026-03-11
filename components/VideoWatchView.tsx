@@ -560,6 +560,26 @@ export default function VideoWatchView({
             <div className="flex-1 min-w-0">
               <p className="text-white text-sm font-semibold truncate">{video.name}</p>
             </div>
+            {userId && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={handleBookmark}
+                  title="Bookmark this moment"
+                  className="flex items-center gap-1 text-gray-400 hover:text-blue-400 transition-colors"
+                >
+                  <Bookmark className="h-4 w-4" />
+                </button>
+                {bookmarkFlash === 'saved' && (
+                  <span className="text-xs text-green-400">Saved!</span>
+                )}
+                {bookmarkFlash === 'duplicate' && (
+                  <span className="text-xs text-yellow-400">Already saved</span>
+                )}
+                {bookmarkFlash === 'play-first' && (
+                  <span className="text-xs text-gray-400">Play video first</span>
+                )}
+              </div>
+            )}
             {onFavoriteToggle && (
               <button onClick={onFavoriteToggle} title={isFavorited ? 'Unfavorite' : 'Favorite'}>
                 <Heart className={clsx('h-5 w-5 transition-colors', isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500 hover:text-red-400')} />

@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { User, Lock, Check, AlertCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { User, Lock, Check, AlertCircle, Bookmark, Trash2, Loader2 } from 'lucide-react'
+import { formatTime } from '@/lib/types'
+import { timeAgo } from '@/lib/comment-utils'
 import clsx from 'clsx'
 
 interface Props {
@@ -11,6 +13,15 @@ interface Props {
     displayName: string
     role: 'captain' | 'contributor' | 'viewer'
   }
+}
+
+interface SavedBookmark {
+  id: string
+  video_id: string
+  session_id: string | null
+  timestamp_seconds: number
+  video_title: string | null
+  created_at: string
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -34,6 +45,34 @@ export default function ProfileEditor({ user }: Props) {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
+
+  // Bookmarks state
+  const [bookmarks, setBookmarks] = useState<SavedBookmark[]>([])
+  const [loadingBookmarks, setLoadingBookmarks] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/bookmarks')
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => { if (Array.isArray(data)) setBookmarks(data) })
+      .catch(() => {})
+      .finally(() => setLoadingBookmarks(false))
+  }, [])
+
+  async function handleDeleteBookmark(bookmarkId: string) {
+    try {
+      const res = await fetch(`/api/bookmarks/${bookmarkId}`, { method: 'DELETE' })
+      if (res.ok || res.status === 204) {
+        setBookmarks((prev) => prev.filter((b) => b.id !== bookmarkId))
+      }
+    } catch { /* silent */ }
+  }
+
+  function handleBookmarkClick(bookmark: SavedBookmark) {
+    const params = new URLSearchParams()
+    params.set('video', bookmark.video_id)
+    if (bookmark.session_id) params.set('session', bookmark.session_id)
+    window.location.href = `/?${params.toString()}`
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -208,6 +247,59 @@ export default function ProfileEditor({ user }: Props) {
           </button>
         </div>
       </form>
+
+      {/* Saved Bookmarks */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Bookmark className="h-4 w-4 text-blue-600" />
+          <h3 className="text-sm font-semibold text-gray-700">Saved Bookmarks</h3>
+        </div>
+
+        {loadingBookmarks && (
+          <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading bookmarks…
+          </div>
+        )}
+
+        {!loadingBookmarks && bookmarks.length === 0 && (
+          <p className="text-xs text-gray-400 italic py-4">
+            No bookmarks yet. Use the bookmark icon while watching a video to save a timestamp.
+          </p>
+        )}
+
+        {!loadingBookmarks && bookmarks.length > 0 && (
+          <div className="space-y-2">
+            {bookmarks.map((bookmark) => (
+              <div
+                key={bookmark.id}
+                className="flex items-center gap-3 group hover:bg-gray-50 rounded-lg px-3 py-2.5 -mx-3 transition-colors"
+              >
+                <button
+                  onClick={() => handleBookmarkClick(bookmark)}
+                  className="flex-1 min-w-0 text-left"
+                >
+                  <p className="text-xs font-medium text-gray-800 truncate">
+                    {bookmark.video_title ?? 'Untitled'}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    <span className="font-mono text-blue-600">{formatTime(bookmark.timestamp_seconds)}</span>
+                    {' · '}
+                    {timeAgo(bookmark.created_at)}
+                  </p>
+                </button>
+                <button
+                  onClick={() => handleDeleteBookmark(bookmark.id)}
+                  className="shrink-0 opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-400 transition-all rounded"
+                  title="Delete bookmark"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
