@@ -42,6 +42,14 @@ export default function ReferenceManager({ isCaptain = false, isAuthenticated = 
   const [showFolderManager, setShowFolderManager] = useState(false)
   const [isDragOverUnfoldered, setIsDragOverUnfoldered] = useState(false)
 
+  // Folder open/close state persisted to sessionStorage
+  const [openFolderIds, setOpenFolderIds] = useState<Set<string>>(() => {
+    try {
+      const raw = sessionStorage.getItem('tf_ref_folders')
+      return raw ? new Set(JSON.parse(raw)) : new Set()
+    } catch { return new Set() }
+  })
+
   // Tag filter state
   const [allTags, setAllTags] = useState<string[]>([])
   const [activeFilterTags, setActiveFilterTags] = useState<string[]>([])
@@ -78,6 +86,11 @@ export default function ReferenceManager({ isCaptain = false, isAuthenticated = 
   const [selectedPractice, setSelectedPractice] = useState<SessionVideo | null>(null)
 
   const ytInfo = addType === 'youtube' ? extractYouTubeInfo(addUrl) : null
+
+  // Sync folder open/close state to sessionStorage
+  useEffect(() => {
+    try { sessionStorage.setItem('tf_ref_folders', JSON.stringify([...openFolderIds])) } catch {}
+  }, [openFolderIds])
 
   useEffect(() => {
     Promise.all([
@@ -682,8 +695,17 @@ export default function ReferenceManager({ isCaptain = false, isAuthenticated = 
     )
   }
 
+  function toggleFolder(folderId: string) {
+    setOpenFolderIds(prev => {
+      const next = new Set(prev)
+      if (next.has(folderId)) next.delete(folderId)
+      else next.add(folderId)
+      return next
+    })
+  }
+
   function FolderSection({ folder, depth = 0 }: { folder: ReferenceFolder; depth?: number }) {
-    const [open, setOpen] = useState(false)
+    const isOpen = openFolderIds.has(folder.id)
     const [isDragOver, setIsDragOver] = useState(false)
     const subFolders = getSubFolders(folder.id)
     const folderVideos = getVideosInFolder(folder.id)
@@ -709,18 +731,18 @@ export default function ReferenceManager({ isCaptain = false, isAuthenticated = 
         } : undefined}
       >
         <button
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => toggleFolder(folder.id)}
           className="flex items-center gap-2 w-full text-left mb-2"
         >
-          <ChevronDown className={clsx('h-4 w-4 text-gray-400 transition-transform', !open && '-rotate-90')} />
+          <ChevronDown className={clsx('h-4 w-4 text-gray-400 transition-transform', !isOpen && '-rotate-90')} />
           <FolderOpen className="h-4 w-4 text-blue-400 shrink-0" />
           <span className={clsx('font-semibold text-gray-700', depth === 0 ? 'text-base' : 'text-sm')}>{folder.name}</span>
           <span className="text-xs text-gray-400">{folderVideos.length}</span>
         </button>
-        {folder.description && open && (
+        {folder.description && isOpen && (
           <p className="text-sm text-gray-500 mb-3 ml-10 leading-relaxed">{folder.description}</p>
         )}
-        {open && (
+        {isOpen && (
           <>
             {subFolders.map((sf) => (
               <FolderSection key={sf.id} folder={sf} depth={depth + 1} />
