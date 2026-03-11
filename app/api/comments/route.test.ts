@@ -414,6 +414,14 @@ describe('PATCH /api/comments/[id]', () => {
   })
 })
 
+// ── GET /api/comments — review queue filter (REV-01) ───────────────────────
+
+describe('GET /api/comments — review queue filter (REV-01)', () => {
+  it.todo('returns only is_reviewed=false items when captainOnly=true')
+  it.todo('returns all items when is_reviewed filter is not applied')
+  it.todo('includes sort_order in response for queue ordering')
+})
+
 // ── DELETE /api/comments/[id] ───────────────────────────────────────────────
 
 describe('DELETE /api/comments/[id]', () => {
