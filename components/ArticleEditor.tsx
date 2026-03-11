@@ -24,6 +24,7 @@ import {
 import type { Article, ArticleBlock, ReferenceVideo, ReferenceFolder } from '@/lib/types'
 import type { SessionVideo } from '@/lib/types'
 import { youtubeThumbnailUrl, extractYouTubeInfo, parseTimestamp, formatTime } from '@/lib/types'
+import MentionTextarea, { type MentionUser } from '@/components/MentionTextarea'
 import clsx from 'clsx'
 
 // ─── Internal types ───────────────────────────────────────────────────────────
@@ -43,6 +44,7 @@ interface Props {
   article: Article | null
   userName: string
   folders?: ReferenceFolder[]
+  users?: MentionUser[]
   onSaved: (article: Article) => void
   onCancel: () => void
 }
@@ -78,25 +80,15 @@ function SortableBlock({ id, children }: { id: string; children: React.ReactNode
 // ─── Block type editors ───────────────────────────────────────────────────────
 
 function TextBlockEditor({
-  block, i, previewBlock, setPreviewBlock, updateBlock,
+  block, i, previewBlock, setPreviewBlock, updateBlock, users,
 }: {
   block: Extract<ArticleBlockWithId, { type: 'text' }>
   i: number
   previewBlock: number | null
   setPreviewBlock: (n: number | null) => void
   updateBlock: (i: number, patch: Partial<ArticleBlock>) => void
+  users?: MentionUser[]
 }) {
-  const taRef = useRef<HTMLTextAreaElement>(null)
-
-  // Auto-resize textarea
-  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    updateBlock(i, { content: e.target.value })
-    if (taRef.current) {
-      taRef.current.style.height = 'auto'
-      taRef.current.style.height = taRef.current.scrollHeight + 'px'
-    }
-  }
-
   return (
     <>
       <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-50 bg-gray-50 rounded-t-xl">
@@ -122,11 +114,12 @@ function TextBlockEditor({
             )}
           </div>
         ) : (
-          <textarea
-            ref={taRef}
+          <MentionTextarea
             value={block.content}
-            onChange={handleChange}
-            placeholder="Write markdown… (**bold**, _italic_, # heading, - list)"
+            onChange={(val) => updateBlock(i, { content: val })}
+            users={users ?? []}
+            autoResize
+            placeholder="Write markdown… (**bold**, _italic_, # heading, - list) Use @ to mention team members"
             rows={4}
             className="w-full resize-none text-sm text-gray-700 focus:outline-none font-mono leading-relaxed min-h-[80px]"
           />
@@ -451,7 +444,7 @@ function ClipBlockEditor({ block, i, updateBlock }: {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function ArticleEditor({ article, userName, folders = [], onSaved, onCancel }: Props) {
+export default function ArticleEditor({ article, userName, folders = [], users = [], onSaved, onCancel }: Props) {
   const [title, setTitle] = useState(article?.title ?? '')
   const [blocks, setBlocks] = useState<ArticleBlockWithId[]>(() =>
     (article?.blocks ?? []).map((b) => ({ ...b, _id: crypto.randomUUID() }))
@@ -653,7 +646,7 @@ export default function ArticleEditor({ article, userName, folders = [], onSaved
                   {/* Block-type toolbar + editor */}
                   {block.type === 'text' && (
                     <TextBlockEditor block={block as Extract<ArticleBlockWithId, { type: 'text' }>} i={i}
-                      previewBlock={previewBlock} setPreviewBlock={setPreviewBlock} updateBlock={updateBlock} />
+                      previewBlock={previewBlock} setPreviewBlock={setPreviewBlock} updateBlock={updateBlock} users={users} />
                   )}
                   {block.type === 'video' && (
                     <VideoBlockEditor block={block as VideoBlock} i={i} updateBlock={updateBlock}

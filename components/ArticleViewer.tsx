@@ -1,9 +1,37 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { youtubeEmbedUrl, formatTime, type ReferenceVideo } from '@/lib/types'
 import type { Article, ArticleBlock } from '@/lib/types'
+import { parseMentions } from '@/lib/mention-utils'
+
+/** Walk ReactNode children, find string nodes, and replace @mention patterns with bold blue spans */
+function processChildren(children: ReactNode): ReactNode {
+  if (typeof children === 'string') {
+    const segments = parseMentions(children)
+    // No mentions — return as-is to avoid unnecessary wrapping
+    if (segments.length === 1 && segments[0].type === 'text') return children
+    return segments.map((seg, i) =>
+      seg.type === 'mention' ? (
+        <strong key={i} className="text-blue-600 font-semibold not-prose">{seg.value}</strong>
+      ) : (
+        <span key={i}>{seg.value}</span>
+      ),
+    )
+  }
+  return children
+}
+
+/** ReactMarkdown components override that scans paragraph children for @mentions */
+const markdownComponents = {
+  p: ({ children }: { children?: ReactNode }) => (
+    <p>{processChildren(children as ReactNode)}</p>
+  ),
+  li: ({ children }: { children?: ReactNode }) => (
+    <li>{processChildren(children as ReactNode)}</li>
+  ),
+}
 
 interface Props {
   article: Article
@@ -162,7 +190,7 @@ export default function ArticleViewer({ article }: Props) {
           <div key={i}>
             {block.type === 'text' && (
               <div className="prose prose-sm prose-gray max-w-none">
-                <ReactMarkdown>{block.content}</ReactMarkdown>
+                <ReactMarkdown components={markdownComponents}>{block.content}</ReactMarkdown>
               </div>
             )}
             {block.type === 'video' && <VideoBlock block={block} />}

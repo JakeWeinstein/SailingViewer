@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers, Reply, Edit2 } from 'lucide-react'
+import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers, Reply, Edit2, Bookmark } from 'lucide-react'
 import { parseTimestamp, formatTime, youtubeThumbnailUrl, type SessionVideo, type VideoNote, type ReferenceVideo } from '@/lib/types'
 import { timeAgo, initials, avatarColor, parseMentions } from '@/lib/comment-utils'
 import { onYouTubeReady } from '@/lib/youtube-api'
@@ -238,6 +238,9 @@ export default function VideoWatchView({
   const [savingEdit, setSavingEdit] = useState(false)
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  // Bookmark state
+  const [bookmarkFlash, setBookmarkFlash] = useState<string | null>(null) // 'saved' | 'duplicate' | 'play-first' | null
 
   const backdropRef = useRef<HTMLDivElement>(null)
   const threadRef = useRef<HTMLDivElement>(null)
@@ -482,6 +485,42 @@ export default function VideoWatchView({
   function expandAndFocusComposer() {
     setCommentsExpanded(true)
     setTimeout(() => composerRef.current?.focus(), 50)
+  }
+
+  async function handleBookmark() {
+    if (!userId) return
+    const player = ytPlayerRef.current
+    if (!player) {
+      setBookmarkFlash('play-first')
+      setTimeout(() => setBookmarkFlash(null), 1500)
+      return
+    }
+    try {
+      const state = player.getPlayerState()
+      if (state !== 1 && state !== 2) {
+        setBookmarkFlash('play-first')
+        setTimeout(() => setBookmarkFlash(null), 1500)
+        return
+      }
+      const ts = Math.floor(player.getCurrentTime())
+      const res = await fetch('/api/bookmarks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          video_id: effectiveVideoId,
+          session_id: sessionId || undefined,
+          timestamp_seconds: ts,
+          video_title: video.name,
+        }),
+      })
+      if (res.status === 409) {
+        setBookmarkFlash('duplicate')
+        setTimeout(() => setBookmarkFlash(null), 1500)
+      } else if (res.ok || res.status === 201) {
+        setBookmarkFlash('saved')
+        setTimeout(() => setBookmarkFlash(null), 1500)
+      }
+    } catch { /* silent */ }
   }
 
   const sorted = [...comments].sort((a, b) => {

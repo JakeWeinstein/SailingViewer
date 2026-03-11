@@ -1,22 +1,38 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Send, Shield, MessageSquare, ChevronDown, ChevronUp, Loader2, Reply } from 'lucide-react'
-import { timeAgo, initials, avatarColor } from '@/lib/comment-utils'
+import { timeAgo, initials, avatarColor, parseMentions } from '@/lib/comment-utils'
+import { extractYouTubeInfo } from '@/lib/types'
 import type { Comment } from '@/lib/types'
+import MentionTextarea, { type MentionUser } from '@/components/MentionTextarea'
 import clsx from 'clsx'
 
 interface QATabProps {
   userName: string
+  users?: MentionUser[]
 }
 
-export default function QATab({ userName }: QATabProps) {
+/** Render comment_text with @mention highlighting */
+function renderWithMentions(text: string) {
+  return parseMentions(text).map((seg, i) =>
+    seg.type === 'mention' ? (
+      <strong key={i} className="text-blue-600 font-semibold">
+        {seg.value}
+      </strong>
+    ) : (
+      <span key={i}>{seg.value}</span>
+    ),
+  )
+}
+
+export default function QATab({ userName, users = [] }: QATabProps) {
   const [posts, setPosts] = useState<Comment[]>([])
   const [loading, setLoading] = useState(true)
 
   // Composer
   const [commentText, setCommentText] = useState('')
-  const [sendToCaptain, setSendToCaptain] = useState(false)
+  const [attachmentUrl, setAttachmentUrl] = useState('')
   const [posting, setPosting] = useState(false)
 
   // Replies
@@ -26,7 +42,6 @@ export default function QATab({ userName }: QATabProps) {
   const [replyingTo, setReplyingTo] = useState<string | null>(null)
   const [replyText, setReplyText] = useState('')
   const [postingReply, setPostingReply] = useState(false)
-  const replyInputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     fetchPosts()
@@ -45,6 +60,10 @@ export default function QATab({ userName }: QATabProps) {
     }
   }
 
+  // Parse the YouTube attachment URL
+  const parsedAttachment = attachmentUrl.trim() ? extractYouTubeInfo(attachmentUrl.trim()) : null
+  const attachmentInvalid = attachmentUrl.trim() !== '' && parsedAttachment === null
+
   async function handlePost() {
     if (!commentText.trim()) return
     setPosting(true)
@@ -55,7 +74,8 @@ export default function QATab({ userName }: QATabProps) {
         body: JSON.stringify({
           author_name: userName,
           comment_text: commentText.trim(),
-          send_to_captain: sendToCaptain,
+          // Q&A posts are always send_to_captain=true (forced server-side)
+          ...(parsedAttachment ? { youtube_attachment: parsedAttachment.id } : {}),
         }),
       })
       if (res.ok) {
@@ -63,7 +83,7 @@ export default function QATab({ userName }: QATabProps) {
         newPost.reply_count = 0
         setPosts((prev) => [newPost, ...prev])
         setCommentText('')
-        setSendToCaptain(false)
+        setAttachmentUrl('')
       }
     } finally {
       setPosting(false)
@@ -96,7 +116,6 @@ export default function QATab({ userName }: QATabProps) {
     if (!expandedReplies.has(postId)) {
       toggleReplies(postId)
     }
-    setTimeout(() => replyInputRef.current?.focus(), 50)
   }
 
   async function handleReply(postId: string) {
@@ -145,25 +164,49 @@ export default function QATab({ userName }: QATabProps) {
           </div>
           <span className="text-sm font-medium text-gray-700">{userName}</span>
         </div>
-        <textarea
+
+        <MentionTextarea
           value={commentText}
-          onChange={(e) => setCommentText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handlePost() }}
+          onChange={setCommentText}
+          users={users}
           rows={3}
           placeholder="Ask a question or start a discussion... (Cmd+Enter to post)"
           className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handlePost() }}
         />
+
+        {/* YouTube attachment */}
+        <div className="space-y-2">
+          <input
+            type="text"
+            placeholder="Paste YouTube URL (optional)"
+            value={attachmentUrl}
+            onChange={(e) => setAttachmentUrl(e.target.value)}
+            className={clsx(
+              'w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500',
+              attachmentInvalid ? 'border-red-300 bg-red-50' : 'border-gray-200',
+            )}
+          />
+          {attachmentInvalid && (
+            <p className="text-xs text-red-500">Invalid YouTube URL</p>
+          )}
+          {parsedAttachment && (
+            <div className="rounded-lg overflow-hidden aspect-video max-w-sm">
+              <iframe
+                src={`https://www.youtube.com/embed/${parsedAttachment.id}`}
+                className="w-full h-full"
+                allowFullScreen
+                title="YouTube attachment preview"
+              />
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center justify-between">
-          <label className="flex items-center gap-1.5 cursor-pointer group">
-            <input
-              type="checkbox"
-              checked={sendToCaptain}
-              onChange={(e) => setSendToCaptain(e.target.checked)}
-              className="rounded border-gray-300 text-blue-600 h-3 w-3"
-            />
-            <Shield className="h-3 w-3 text-gray-400 group-hover:text-blue-500 transition-colors" />
-            <span className="text-xs text-gray-500">Submit to captain for review</span>
-          </label>
+          <div className="flex items-center gap-1 text-xs text-gray-400">
+            <Shield className="h-3 w-3" />
+            <span>Sent to captain for review</span>
+          </div>
           <button
             onClick={handlePost}
             disabled={posting || !commentText.trim()}
@@ -215,7 +258,21 @@ export default function QATab({ userName }: QATabProps) {
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{post.comment_text}</p>
+                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                  {renderWithMentions(post.comment_text)}
+                </p>
+
+                {/* YouTube attachment embed */}
+                {post.youtube_attachment && (
+                  <div className="mt-3 rounded-lg overflow-hidden aspect-video">
+                    <iframe
+                      src={`https://www.youtube.com/embed/${post.youtube_attachment}`}
+                      className="w-full h-full"
+                      allowFullScreen
+                      title="Attached video"
+                    />
+                  </div>
+                )}
 
                 {/* Action bar */}
                 <div className="flex items-center gap-3 mt-3">
@@ -253,7 +310,9 @@ export default function QATab({ userName }: QATabProps) {
                         <span className="text-xs font-semibold text-gray-700">{reply.author_name}</span>
                         <span className="text-[10px] text-gray-400">{timeAgo(reply.created_at)}</span>
                       </div>
-                      <p className="text-xs text-gray-600 leading-relaxed">{reply.comment_text}</p>
+                      <p className="text-xs text-gray-600 leading-relaxed">
+                        {renderWithMentions(reply.comment_text)}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -269,14 +328,14 @@ export default function QATab({ userName }: QATabProps) {
                       </div>
                       <span className="text-xs font-medium text-gray-600">{userName}</span>
                     </div>
-                    <textarea
-                      ref={replyInputRef}
+                    <MentionTextarea
                       value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleReply(post.id) }}
+                      onChange={setReplyText}
+                      users={users}
                       rows={2}
                       placeholder="Write a reply..."
                       className="w-full px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleReply(post.id) }}
                     />
                     <div className="flex gap-2">
                       <button

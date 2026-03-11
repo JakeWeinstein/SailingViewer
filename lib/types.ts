@@ -79,6 +79,7 @@ export type Comment = {
   reply_count?: number
   is_edited?: boolean
   updated_at?: string
+  youtube_attachment?: string
 }
 
 /** @deprecated Use DbUser after component rewrite */
