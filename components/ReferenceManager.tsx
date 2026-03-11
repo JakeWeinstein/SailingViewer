@@ -482,10 +482,11 @@ export default function ReferenceManager({ isCaptain = false, isAuthenticated = 
   }
 
   // ── VideoCard component ────────────────────────────────────────────────────
-  function VideoCard({ video }: { video: ReferenceVideo }) {
+  function VideoCard({ video, chapters }: { video: ReferenceVideo; chapters?: ReferenceVideo[] }) {
+    const [chaptersExpanded, setChaptersExpanded] = useState(false)
     const thumb = youtubeThumbnailUrl(video.video_ref)
     const isChapter = !!video.parent_video_id
-    const chapterCount = !isChapter ? getChapterCount(video.id) : 0
+    const chapterCount = chapters?.length ?? (!isChapter ? getChapterCount(video.id) : 0)
     const showInlineChapterForm = inlineChapterParentId === video.id
 
     return (
@@ -496,8 +497,8 @@ export default function ReferenceManager({ isCaptain = false, isAuthenticated = 
           e.dataTransfer.effectAllowed = 'move'
         } : undefined}
         className={clsx(
-          'group relative bg-white rounded-xl border overflow-hidden hover:shadow-md hover:border-blue-200 transition-all',
-          isChapter ? 'border-l-2 border-purple-400 border-t border-r border-b border-t-gray-100 border-r-gray-100 border-b-gray-100' : 'border-gray-100',
+          'group/card relative bg-white rounded-xl border overflow-hidden hover:shadow-md hover:border-blue-200 transition-all',
+          'border-gray-100',
           isCaptain && 'cursor-grab active:cursor-grabbing active:opacity-50'
         )}
       >
@@ -507,12 +508,12 @@ export default function ReferenceManager({ isCaptain = false, isAuthenticated = 
             <img
               src={thumb}
               alt={video.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300"
               loading="lazy"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
             />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-              <div className="opacity-0 group-hover:opacity-100 bg-white/90 rounded-full p-2.5 shadow">
+            <div className="absolute inset-0 bg-black/0 group-hover/card:bg-black/20 transition-colors flex items-center justify-center">
+              <div className="opacity-0 group-hover/card:opacity-100 bg-white/90 rounded-full p-2.5 shadow">
                 <Play className="h-5 w-5 text-blue-600 fill-blue-600" />
               </div>
             </div>
@@ -539,6 +540,37 @@ export default function ReferenceManager({ isCaptain = false, isAuthenticated = 
             {video.note && <p className="text-xs text-amber-600 mt-0.5 truncate">📝 {video.note}</p>}
           </div>
         </button>
+
+        {/* Chapter dropdown toggle + expandable list */}
+        {chapters && chapters.length > 0 && (
+          <div className="px-3 pb-1">
+            <button
+              onClick={() => setChaptersExpanded((v) => !v)}
+              className="flex items-center gap-1 text-xs font-medium text-purple-500 hover:text-purple-700 transition-colors py-1"
+            >
+              <ChevronDown className={clsx('h-3 w-3 transition-transform', !chaptersExpanded && '-rotate-90')} />
+              <span>{chapters.length} chapter{chapters.length !== 1 ? 's' : ''}</span>
+            </button>
+            {chaptersExpanded && (
+              <div className="border-l-2 border-purple-200 ml-1 mb-1">
+                {chapters.map((ch) => (
+                  <button
+                    key={ch.id}
+                    onClick={() => setWatchTarget(ch)}
+                    className="w-full text-left flex items-center gap-2 py-1 px-3 text-xs hover:bg-purple-50 transition-colors"
+                  >
+                    {ch.start_seconds != null && ch.start_seconds > 0 && (
+                      <span className="shrink-0 font-mono text-purple-500 bg-purple-50 rounded px-1 py-0.5 text-[10px]">
+                        {formatTime(ch.start_seconds)}
+                      </span>
+                    )}
+                    <span className="text-gray-700 truncate">{ch.title}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tag display / editor — visible to all logged-in users */}
         <VideoTagEditor video={video} />
@@ -626,43 +658,13 @@ export default function ReferenceManager({ isCaptain = false, isAuthenticated = 
     const groups = groupFolderVideos(folderVideos)
 
     return (
-      <div className="space-y-4 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-4">
         {groups.map((item) => {
           if (item.kind === 'standalone') {
-            return (
-              <div key={item.video.id} className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                <VideoCard video={item.video} />
-              </div>
-            )
+            return <VideoCard key={item.video.id} video={item.video} />
           }
-
-          // Group: source + chapters
-          return (
-            <div key={item.source.id}>
-              {/* Group header */}
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-px flex-1 bg-purple-100" />
-                <span className="text-xs font-medium text-purple-500 whitespace-nowrap">
-                  {item.source.title} — {item.chapters.length} chapter{item.chapters.length !== 1 ? 's' : ''}
-                </span>
-                {(isCaptain || isAuthenticated) && (
-                  <button
-                    onClick={() => setChapterSource(item.source)}
-                    className="text-xs text-purple-400 hover:text-purple-600 transition-colors whitespace-nowrap"
-                  >
-                    Edit chapters
-                  </button>
-                )}
-                <div className="h-px flex-1 bg-purple-100" />
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                <VideoCard video={item.source} />
-                {item.chapters.map((ch) => (
-                  <VideoCard key={ch.id} video={ch} />
-                ))}
-              </div>
-            </div>
-          )
+          // Group: single card for source with chapters passed as prop
+          return <VideoCard key={item.source.id} video={item.source} chapters={item.chapters} />
         })}
       </div>
     )
