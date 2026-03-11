@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, Suspense } from 'react'
 import {
   ChevronDown, ChevronRight, Film, LogOut, Shield,
   MessageSquare, Play, Grid3x3, BookOpen, Upload, FileText, Users, Anchor, Youtube,
-  CheckCircle, AlertCircle, Loader2, RefreshCw, X, Plus
+  CheckCircle, AlertCircle, Loader2, RefreshCw, X, Plus, Presentation
 } from 'lucide-react'
 import SessionManager from './SessionManager'
 import VideoManager from './VideoManager'
@@ -920,22 +920,33 @@ export default function DashboardView({ initialSessions, userRole, userName, use
             {/* ── Review tab ── */}
             {mainTab === 'review' && (
               <>
-                {/* User filter */}
-                {reviewAuthors.length > 1 && (
-                  <div className="flex items-center gap-2 mb-4">
-                    <Users className="h-4 w-4 text-gray-400 shrink-0" />
-                    <select
-                      value={reviewUserFilter}
-                      onChange={(e) => setReviewUserFilter(e.target.value)}
-                      className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                {/* Review tab header: filter + Present button */}
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                  {reviewAuthors.length > 1 && (
+                    <>
+                      <Users className="h-4 w-4 text-gray-400 shrink-0" />
+                      <select
+                        value={reviewUserFilter}
+                        onChange={(e) => setReviewUserFilter(e.target.value)}
+                        className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="all">All users</option>
+                        {reviewAuthors.map((name) => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+                  {isCaptain && selectedSessionId && (
+                    <Link
+                      href={`/dashboard/present?session=${selectedSessionId}`}
+                      className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
                     >
-                      <option value="all">All users</option>
-                      {reviewAuthors.map((name) => (
-                        <option key={name} value={name}>{name}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                      <Presentation className="h-4 w-4" />
+                      Present
+                    </Link>
+                  )}
+                </div>
 
                 {loadingReview && (
                   <p className="text-sm text-gray-400 py-10 text-center">Loading…</p>
