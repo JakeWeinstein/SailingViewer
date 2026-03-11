@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { getTokenPayload } from '@/lib/auth'
 import type { SessionVideo, VideoNote } from '@/lib/types'
+import { createCaptainResponseNotifications } from '@/lib/mention-utils'
 
 // PATCH /api/sessions/[id]/video-note — captain only
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -37,6 +38,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { error } = await supabase.from('sessions').update({ videos }).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Fire-and-forget: notify users who flagged this video that captain responded
+  createCaptainResponseNotifications(id, videoId, supabase).catch(() => {})
 
   return NextResponse.json({ ok: true })
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { getTokenPayload } from '@/lib/auth'
 import { CreateCommentSchema, CommentQuerySchema } from '@/lib/schemas/comments'
+import { createMentionNotifications, createReplyNotification } from '@/lib/mention-utils'
 
 // GET /api/comments?videoId=&sessionId=&captainOnly=true&type=qa&parentId=
 export async function GET(req: NextRequest) {
@@ -109,7 +110,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten().fieldErrors }, { status: 400 })
   }
 
-  const { video_id, session_id, timestamp_seconds, comment_text, send_to_captain, parent_id } = parsed.data
+  const { video_id, session_id, timestamp_seconds, comment_text, send_to_captain, parent_id, youtube_attachment } = parsed.data
+
+  // Q&A top-level posts (no video_id, no parent_id) always go to captain
+  const effectiveSendToCaptain = (!video_id && !parent_id) ? true : send_to_captain
 
   const { data, error } = await supabase
     .from('comments')
@@ -120,12 +124,22 @@ export async function POST(req: NextRequest) {
       session_id: session_id ?? null,
       timestamp_seconds: timestamp_seconds ?? null,
       comment_text,
-      send_to_captain,
+      send_to_captain: effectiveSendToCaptain,
       parent_id: parent_id ?? null,
+      youtube_attachment: youtube_attachment ?? null,
     })
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Fire-and-forget: create mention and reply notifications
+  if (payload.userId) {
+    createMentionNotifications(data.id, comment_text, payload.userId, supabase).catch(() => {})
+    if (parent_id) {
+      createReplyNotification(data.id, parent_id, payload.userId, supabase).catch(() => {})
+    }
+  }
+
   return NextResponse.json(data, { status: 201 })
 }
