@@ -54,8 +54,8 @@
 - [ ] **CONT-03**: Reference videos organized in folder hierarchy
 - [ ] **CONT-04**: Reference videos can be tagged for cross-cutting topics
 - [ ] **CONT-05**: Anyone logged in can add chapters to reference videos
-- [ ] **CONT-06**: Block-based article editor with text and video embed blocks
-- [ ] **CONT-07**: Articles have published/draft visibility
+- [x] **CONT-06**: Block-based article editor with text and video embed blocks
+- [x] **CONT-07**: Articles have published/draft visibility
 - [ ] **CONT-08**: Full-text search across videos, comments, articles, and Q&A
 
 ### Infrastructure
@@ -121,8 +121,8 @@
 | CONT-03 | Phase 3 | Pending |
 | CONT-04 | Phase 3 | Pending |
 | CONT-05 | Phase 3 | Pending |
-| CONT-06 | Phase 3 | Pending |
-| CONT-07 | Phase 3 | Pending |
+| CONT-06 | Phase 3 | Complete |
+| CONT-07 | Phase 3 | Complete |
 | QA-01 | Phase 4 | Pending |
 | QA-02 | Phase 4 | Pending |
 | QA-03 | Phase 4 | Pending |
