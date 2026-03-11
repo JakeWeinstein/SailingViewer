@@ -62,7 +62,7 @@ Plans:
   3. The captain can create a session, paste a Google Sheet URL, and the practice videos from that sheet appear in the session
   4. A contributor can organize reference videos in a two-level folder hierarchy, add tags to videos, and add chapter markers
   5. A contributor can write and publish a block-based article containing text and embedded video blocks; drafts are visible only to logged-in users
-**Plans:** 4 plans
+**Plans:** 2/4 plans executed
 Plans:
 - [ ] 03-01-PLAN.md — Schema migration, Zod schemas, comment API rewrite, import-sheet deletion
 - [ ] 03-02-PLAN.md — Article editor redesign (4 block types, dnd-kit drag-to-reorder)
@@ -101,6 +101,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete   | 2026-03-10 |
 | 2. Video Playback | 4/4 | Complete   | 2026-03-10 |
-| 3. Core Content | 0/4 | Not started | - |
+| 3. Core Content | 2/4 | In Progress|  |
 | 4. Engagement | 0/TBD | Not started | - |
 | 5. Presentation and Search | 0/TBD | Not started | - |

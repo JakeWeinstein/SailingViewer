@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-11T00:11:15.543Z"
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-11T00:42:23.522Z"
 last_activity: 2026-03-10 — 02-01 YouTube-only foundation complete
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 11
+  completed_plans: 9
   percent: 67
 ---
 
@@ -58,6 +58,7 @@ Progress: [████████░░] 67% (plans: 4 of ~6 estimated)
 | Phase 02-video-playback P02 | 3 | 2 tasks | 6 files |
 | Phase 02-video-playback P02 | 3 | 3 tasks | 6 files |
 | Phase 02-video-playback P03 | checkpoint-verified | 3 tasks | 9 files |
+| Phase 03-core-content P01 | 4 | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,11 @@ Recent decisions affecting current work:
 - [Phase 02-video-playback]: YouTubeLoader null-rendering client component used for global IFrame API initialization — keeps onYouTubeIframeAPIReady callback queue in youtube-api.ts as single source of truth
 - [Phase 02-video-playback]: playsinline: 1 always (not mobile-conditioned) — avoids iOS fullscreen hijack while allowing Android inline; matches Research Pitfall 3
 - [Phase 02-video-playback]: Timestamp auto-capture guarded by getPlayerState() PLAYING(1)/PAUSED(2) — prevents capturing 0 on load or garbage on ENDED/BUFFERING
+- [Phase 03-core-content]: author_id comes from JWT payload exclusively — body-injected author_id silently ignored
+- [Phase 03-core-content]: Captain role can edit/delete any comment for moderation (isOwner || isCaptain)
+- [Phase 03-core-content]: DELETE cascades to replies in application code — no DB cascade constraint needed
+- [Phase 03-core-content]: Deprecated Drive helpers removed from lib/types.ts — no remaining imports confirmed
+- [Phase 03-core-content]: Google Sheet import dropped entirely per locked Phase 3 decision
 
 ### Pending Todos
 
@@ -104,6 +110,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11T00:11:15.541Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-core-content/03-CONTEXT.md
+Last session: 2026-03-11T00:42:23.520Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None

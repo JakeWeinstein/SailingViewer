@@ -25,9 +25,9 @@
 
 ### Comments & Interaction
 
-- [ ] **COMM-01**: User can leave timestamped comments on practice videos
-- [ ] **COMM-02**: User can reply to comments in threaded conversations
-- [ ] **COMM-03**: User can flag a comment with "send to captain for review"
+- [x] **COMM-01**: User can leave timestamped comments on practice videos
+- [x] **COMM-02**: User can reply to comments in threaded conversations
+- [x] **COMM-03**: User can flag a comment with "send to captain for review"
 - [ ] **COMM-04**: User receives in-app notifications for @mentions and captain responses
 - [ ] **COMM-05**: Notification bell shows unread count badge
 
@@ -50,7 +50,7 @@
 ### Content & Reference
 
 - [ ] **CONT-01**: Captain can create sessions (weekly practice groupings)
-- [ ] **CONT-02**: Captain can import practice videos from Google Sheet containing Drive links
+- [x] **CONT-02**: Captain can import practice videos from Google Sheet containing Drive links
 - [ ] **CONT-03**: Reference videos organized in folder hierarchy
 - [ ] **CONT-04**: Reference videos can be tagged for cross-cutting topics
 - [ ] **CONT-05**: Anyone logged in can add chapters to reference videos
@@ -113,11 +113,11 @@
 | VID-03 | Phase 2 | Complete |
 | VID-04 | Phase 2 | Complete |
 | VID-05 | Phase 2 | Complete |
-| COMM-01 | Phase 3 | Pending |
-| COMM-02 | Phase 3 | Pending |
-| COMM-03 | Phase 3 | Pending |
+| COMM-01 | Phase 3 | Complete |
+| COMM-02 | Phase 3 | Complete |
+| COMM-03 | Phase 3 | Complete |
 | CONT-01 | Phase 3 | Pending |
-| CONT-02 | Phase 3 | Pending |
+| CONT-02 | Phase 3 | Complete |
 | CONT-03 | Phase 3 | Pending |
 | CONT-04 | Phase 3 | Pending |
 | CONT-05 | Phase 3 | Pending |
