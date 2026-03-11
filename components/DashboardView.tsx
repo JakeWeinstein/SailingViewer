@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react'
 import {
   ChevronDown, ChevronRight, Film, LogOut, Shield,
   MessageSquare, Play, Grid3x3, BookOpen, Upload, FileText, Users, Anchor, Youtube,
@@ -15,6 +15,7 @@ import ArticleEditor from './ArticleEditor'
 import TeamManager from './TeamManager'
 import ProfileEditor from './ProfileEditor'
 import NotificationBell from './NotificationBell'
+import GlobalSearchBar from './GlobalSearchBar'
 import type { Session, Comment } from '@/lib/types'
 import type { SessionVideo, VideoNote, Article, ReferenceFolder } from '@/lib/types'
 import { youtubeThumbnailUrl } from '@/lib/types'
@@ -389,6 +390,11 @@ export default function DashboardView({ initialSessions, userRole, userName, use
               </p>
             </div>
             <NotificationBell />
+          </div>
+          <div className="mt-3">
+            <Suspense fallback={null}>
+              <GlobalSearchBar className="w-full" />
+            </Suspense>
           </div>
         </div>
 

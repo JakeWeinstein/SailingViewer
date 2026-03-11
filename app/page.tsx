@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, Suspense } from 'react'
 import { Anchor, Loader2, Heart, MessageCircle, Play, ChevronDown, ChevronRight, BookOpen, GraduationCap, MessageSquare } from 'lucide-react'
 import NamePrompt from '@/components/NamePrompt'
 import VideoWatchView from '@/components/VideoWatchView'
@@ -8,6 +8,7 @@ import ReferenceManager from '@/components/ReferenceManager'
 import ArticleViewer from '@/components/ArticleViewer'
 import QATab from '@/components/QATab'
 import NotificationBell from '@/components/NotificationBell'
+import GlobalSearchBar from '@/components/GlobalSearchBar'
 import { youtubeThumbnailUrl, type SessionVideo, type Article } from '@/lib/types'
 import type { Comment } from '@/lib/types'
 import clsx from 'clsx'
@@ -306,6 +307,9 @@ export default function TeamFormPage() {
             <h1 className="text-sm font-bold text-gray-900 leading-none">Telltale</h1>
             {activeSession && <p className="text-xs text-gray-400 mt-0.5 truncate">{activeSession.label}</p>}
           </div>
+          <Suspense fallback={null}>
+            <GlobalSearchBar className="hidden sm:flex" />
+          </Suspense>
           {userName && (
             <button
               onClick={() => setShowNamePrompt(true)}
