@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 Phase: 3 of 5 (Core Content) — COMPLETE
 Plan: 4 of 4 complete in Phase 3
 Status: Phase 3 fully verified — all 13 e2e steps approved by human
-Last activity: 2026-03-11 - Completed quick task 9: Fix search results not navigating to reference videos
+Last activity: 2026-03-11 - Completed quick task 10: Fix search results not jumping to correct timestamp
 
 Progress: [████████████░░░░] 75% (plans: 11 of ~14 estimated — 3 phases complete)
 
@@ -157,9 +157,10 @@ None yet.
 | 7 | Rethink reference library chapter display (consolidated cards) | 2026-03-11 | 1d50c92 | [7-rethink-reference-library-chapter-displa](./quick/7-rethink-reference-library-chapter-displa/) |
 | 8 | Improve search with full-text matching for reference videos and chapters | 2026-03-11 | 8ac4905 | [8-improve-search-with-full-text-matching-a](./quick/8-improve-search-with-full-text-matching-a/) |
 | 9 | Fix search results not navigating to reference videos | 2026-03-11 | b39a16e | [9-fix-search-results-not-navigating-to-ref](./quick/9-fix-search-results-not-navigating-to-ref/) |
+| 10 | Fix search results not jumping to correct timestamp | 2026-03-11 | cd004d1 | [10-fix-search-results-not-jumping-to-correc](./quick/10-fix-search-results-not-jumping-to-correc/) |
 
 ## Session Continuity
 
-Last session: 2026-03-11T20:34:00.000Z
-Stopped at: Completed quick task 9
+Last session: 2026-03-11T20:41:00.000Z
+Stopped at: Completed quick task 10
 Resume file: None
