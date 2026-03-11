@@ -7,6 +7,7 @@ export const CreateCommentSchema = z.object({
   comment_text: z.string().min(1, 'Comment cannot be empty').max(5000).trim(),
   send_to_captain: z.boolean().default(false),
   parent_id: z.string().uuid().optional(),
+  youtube_attachment: z.string().max(20).optional(),
 })
 
 export type CreateComment = z.infer<typeof CreateCommentSchema>
