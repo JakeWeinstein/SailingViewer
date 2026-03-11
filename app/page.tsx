@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react'
 import { Anchor, Loader2, Heart, MessageCircle, Play, ChevronDown, ChevronRight, BookOpen, GraduationCap, MessageSquare } from 'lucide-react'
-import NamePrompt from '@/components/NamePrompt'
 import VideoWatchView from '@/components/VideoWatchView'
 import ReferenceManager from '@/components/ReferenceManager'
 import ArticleViewer from '@/components/ArticleViewer'
@@ -45,7 +44,6 @@ interface WatchTarget { video: SessionVideo; sessionId: string }
 
 export default function TeamFormPage() {
   const [userName, setUserName] = useState<string | null>(null)
-  const [showNamePrompt, setShowNamePrompt] = useState(false)
   const [sessions, setSessions] = useState<BrowseSession[]>([])
   const [loading, setLoading] = useState(true)
   const [comments, setComments] = useState<Comment[]>([])
@@ -67,7 +65,6 @@ export default function TeamFormPage() {
   useEffect(() => {
     const saved = localStorage.getItem(NAME_KEY)
     if (saved) setUserName(saved)
-    else setShowNamePrompt(true)
     setFavorites(loadFavorites())
     // Check if user is already authenticated
     fetch('/api/auth/me')
@@ -76,6 +73,9 @@ export default function TeamFormPage() {
         const user = data ?? null
         setAuthUser(user)
         if (user) {
+          if (user.userName) {
+            setUserName(user.userName)
+          }
           // Fetch users list for @mention autocomplete
           fetch('/api/users')
             .then((r) => r.ok ? r.json() : [])
@@ -164,11 +164,6 @@ export default function TeamFormPage() {
     }
   }, [mainView, articles.length])
 
-  function handleSetName(name: string) {
-    localStorage.setItem(NAME_KEY, name)
-    setUserName(name)
-    setShowNamePrompt(false)
-  }
 
   function toggleFavorite(videoId: string) {
     setFavorites((prev) => {
@@ -295,8 +290,6 @@ export default function TeamFormPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {showNamePrompt && <NamePrompt onSet={handleSetName} />}
-
       {/* Header */}
       <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
@@ -310,15 +303,6 @@ export default function TeamFormPage() {
           <Suspense fallback={null}>
             <GlobalSearchBar className="hidden sm:flex" />
           </Suspense>
-          {userName && (
-            <button
-              onClick={() => setShowNamePrompt(true)}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-full transition-colors"
-            >
-              <span className="font-medium">{userName}</span>
-              <ChevronDown className="h-3 w-3" />
-            </button>
-          )}
           {authUser && <NotificationBell />}
           {authUser !== undefined && (
             authUser ? (
@@ -368,10 +352,10 @@ export default function TeamFormPage() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-10">
 
         {/* ── Reference Library ── */}
-        {mainView === 'reference' && userName && (
+        {mainView === 'reference' && (
           <ReferenceManager
             isCaptain={false}
-            userName={userName}
+            userName={userName ?? 'Visitor'}
             activeSessionId={activeSession?.id}
           />
         )}
@@ -434,8 +418,8 @@ export default function TeamFormPage() {
         )}
 
         {/* ── Q&A ── */}
-        {mainView === 'qa' && userName && (
-          <QATab userName={userName} users={mentionUsers} />
+        {mainView === 'qa' && (
+          <QATab userName={userName ?? 'Anonymous'} users={mentionUsers} />
         )}
 
         {mainView === 'sessions' && loading && (
