@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { youtubeEmbedUrl, type ReferenceVideo } from '@/lib/types'
+import { youtubeEmbedUrl, formatTime, type ReferenceVideo } from '@/lib/types'
 import type { Article, ArticleBlock } from '@/lib/types'
 
 interface Props {
@@ -88,6 +88,68 @@ function LegacyVideoBlock({ block }: { block: ArticleBlock & { type: 'video' } }
   )
 }
 
+function ImageBlock({ block }: { block: ArticleBlock & { type: 'image' } }) {
+  const [errored, setErrored] = useState(false)
+
+  return (
+    <figure className="my-4">
+      {errored ? (
+        <div className="aspect-video bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 text-sm">
+          Image could not be loaded
+        </div>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={block.url}
+          alt={block.alt ?? ''}
+          onError={() => setErrored(true)}
+          className="w-full rounded-xl shadow-sm border border-gray-100 object-contain max-h-[480px]"
+        />
+      )}
+      {block.caption && (
+        <figcaption className="text-xs text-gray-500 mt-2 text-center font-medium">
+          {block.caption}
+        </figcaption>
+      )}
+    </figure>
+  )
+}
+
+function ClipBlock({ block }: { block: ArticleBlock & { type: 'clip' } }) {
+  // Build embed URL with start and optional end
+  let src = `https://www.youtube.com/embed/${block.videoRef}?start=${block.startSeconds}`
+  if (block.endSeconds != null) src += `&end=${block.endSeconds}`
+
+  const timeRange = block.endSeconds != null
+    ? `${formatTime(block.startSeconds)} - ${formatTime(block.endSeconds)}`
+    : formatTime(block.startSeconds)
+
+  return (
+    <div className="my-4">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+          {timeRange}
+        </span>
+        {block.title && (
+          <span className="text-xs text-gray-500 font-medium">{block.title}</span>
+        )}
+      </div>
+      <div className="aspect-video rounded-xl overflow-hidden shadow-sm border border-gray-100">
+        <iframe
+          src={src}
+          className="w-full h-full"
+          allow="autoplay"
+          allowFullScreen
+          title={block.title ?? `Clip at ${timeRange}`}
+        />
+      </div>
+      {block.caption && (
+        <p className="text-xs text-gray-500 mt-2 text-center font-medium">{block.caption}</p>
+      )}
+    </div>
+  )
+}
+
 export default function ArticleViewer({ article }: Props) {
   return (
     <article className="max-w-3xl mx-auto">
@@ -104,6 +166,9 @@ export default function ArticleViewer({ article }: Props) {
               </div>
             )}
             {block.type === 'video' && <VideoBlock block={block} />}
+            {block.type === 'image' && <ImageBlock block={block} />}
+            {block.type === 'clip' && <ClipBlock block={block} />}
+            {/* Unknown block types are silently skipped */}
           </div>
         ))}
       </div>

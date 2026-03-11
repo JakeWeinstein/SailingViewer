@@ -48,6 +48,16 @@ import ArticleEditor from './ArticleEditor'
 import ArticleViewer from './ArticleViewer'
 import type { Article } from '@/lib/types'
 
+// ─── Fetch mock helper ────────────────────────────────────────────────────────
+// The editor calls fetch('/api/reference-videos') in useEffect.
+// Provide a default mock that returns an empty array so tests don't crash.
+function mockFetchEmpty() {
+  vi.mocked(global.fetch).mockResolvedValue({
+    ok: true,
+    json: async () => [],
+  } as unknown as Response)
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const defaultEditorProps = {
   article: null,
@@ -77,6 +87,7 @@ function makeArticle(overrides: Partial<Article> = {}): Article {
 describe('ArticleEditor — block insertion buttons', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockFetchEmpty()
   })
 
   test('shows insertion buttons for all 4 block types', () => {
