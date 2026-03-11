@@ -103,7 +103,7 @@ export default function VideoWatchView({
   // Track active chapter index for auto-advance and UI highlighting
   const [activeChapterIndex, setActiveChapterIndex] = useState<number>(() => {
     if (!siblingChapters) return 0
-    const idx = siblingChapters.findIndex((ch) => ch.video_ref === effectiveVideoId)
+    const idx = siblingChapters.findIndex((ch) => ch.id === video.id)
     return idx >= 0 ? idx : 0
   })
   const activeChapterIndexRef = useRef(activeChapterIndex)
