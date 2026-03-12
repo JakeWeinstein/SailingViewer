@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 Phase: 3 of 5 (Core Content) — COMPLETE
 Plan: 4 of 4 complete in Phase 3
 Status: Phase 3 fully verified — all 13 e2e steps approved by human
-Last activity: 2026-03-11 - Completed quick task 16: Fix video viewer overflow, make comments scrollable
+Last activity: 2026-03-12 - Completed quick task 17: Move chapters below video player to eliminate black space
 
 Progress: [████████████░░░░] 75% (plans: 11 of ~14 estimated — 3 phases complete)
 
@@ -164,9 +164,10 @@ None yet.
 | 14 | Persist UI state across tab switches (tab + folder open/close) | 2026-03-11 | 43f1223 | [14-persist-ui-state-across-tab-switches-vid](./quick/14-persist-ui-state-across-tab-switches-vid/) |
 | 15 | Remove redundant search bar in presentation mode, add chapter support | 2026-03-11 | d41592c | [15-remove-redundant-search-bar-in-presentat](./quick/15-remove-redundant-search-bar-in-presentat/) |
 | 16 | Fix video viewer overflow, make comments scrollable | 2026-03-11 | f4bdac5 | [16-fix-video-viewer-overflow-make-comments-](./quick/16-fix-video-viewer-overflow-make-comments-/) |
+| 17 | Move chapters below video player to eliminate black space | 2026-03-12 | ad64129 | [17-move-chapters-below-video-player-to-elim](./quick/17-move-chapters-below-video-player-to-elim/) |
 
 ## Session Continuity
 
-Last session: 2026-03-11T23:57:04Z
-Stopped at: Completed quick task 16
+Last session: 2026-03-12T00:09:29Z
+Stopped at: Completed quick task 17
 Resume file: None
