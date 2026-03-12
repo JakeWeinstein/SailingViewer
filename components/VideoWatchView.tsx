@@ -654,9 +654,9 @@ export default function VideoWatchView({
           <X className="h-4 w-4" />
         </button>
 
-        {/* ── Left: Video (full width mobile, 65% desktop) ── */}
-        <div className="w-full sm:w-[65%] bg-black flex flex-col shrink-0">
-          <div className="aspect-video w-full">
+        {/* ── Left: Video + chapters (full width mobile, 65% desktop) ── */}
+        <div className="w-full sm:w-[65%] flex flex-col shrink-0 sm:overflow-y-auto">
+          <div className="bg-black aspect-video w-full">
             {/* YT.Player mounts into this div */}
             <div id={containerIdRef.current} className="w-full h-full" />
           </div>
@@ -699,12 +699,8 @@ export default function VideoWatchView({
               <ExternalLink className="h-3 w-3" />
             </a>
           </div>
-        </div>
 
-        {/* ── Right panel (full width mobile, 35% desktop) ── */}
-        <div className="flex-1 sm:w-[35%] flex flex-col overflow-hidden border-l border-gray-100">
-
-          {/* Chapter navigation — vertical scrollable list */}
+          {/* Chapter navigation — below title bar in left column */}
           {siblingChapters && siblingChapters.length > 1 && (
             <div className="border-b border-purple-100 bg-purple-50 px-4 py-2.5 shrink-0">
               <div className="flex items-center gap-1.5 mb-2">
@@ -905,6 +901,11 @@ export default function VideoWatchView({
               )}
             </div>
           )}
+
+        </div>
+
+        {/* ── Right panel (full width mobile, 35% desktop) ── */}
+        <div className="flex-1 sm:w-[35%] flex flex-col overflow-hidden border-l border-gray-100">
 
           {/* Captain notes section */}
           {(effectiveCaptain || hasNotes) && (
