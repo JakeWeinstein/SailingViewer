@@ -749,6 +749,7 @@ export default function VideoWatchView({
                   src={driveEmbedUrl(effectiveVideoId)}
                   className="w-full h-full"
                   style={isFullscreen ? { width: '100vw', height: '95vh' } : undefined}
+                  sandbox="allow-scripts allow-same-origin allow-popups"
                   allow="autoplay; fullscreen"
                   allowFullScreen
                 />
