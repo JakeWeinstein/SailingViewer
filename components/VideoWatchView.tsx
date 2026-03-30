@@ -75,7 +75,7 @@ export default function VideoWatchView({
   video, sessionId, activeSessionId, userName, userId, userRole,
   isCaptain = false,
   isFavorited = false, onFavoriteToggle, onClose, onNotesUpdated, onNoteUpdated,
-  mediaId, videoType = 'youtube', noteApiPath, startSeconds,
+  mediaId, videoType, noteApiPath, startSeconds,
   siblingChapters, onChapterChange,
   isAuthenticated = false, onChaptersChanged,
   users = [],
