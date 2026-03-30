@@ -75,7 +75,7 @@ export default function TeamFormPage() {
   const learnLoaded = useRef(false)
 
   // Auth state for login/dashboard button
-  const [authUser, setAuthUser] = useState<{ role: string; userName?: string } | null | undefined>(undefined)
+  const [authUser, setAuthUser] = useState<{ role: string; displayName?: string; username?: string } | null | undefined>(undefined)
   const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([])
 
   // Learn
@@ -91,12 +91,12 @@ export default function TeamFormPage() {
     fetch('/api/auth/me')
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
-        const user = data ?? null
+        const user = data?.user ?? null
         setAuthUser(user)
         if (user) {
-          if (user.userName) {
-            setUserName(user.userName)
-            localStorage.setItem(NAME_KEY, user.userName)
+          if (user.displayName) {
+            setUserName(user.displayName)
+            localStorage.setItem(NAME_KEY, user.displayName)
           }
           // Fetch users list for @mention autocomplete
           fetch('/api/users')
@@ -655,7 +655,7 @@ export default function TeamFormPage() {
             sessionId={watchTarget.sessionId}
             startSeconds={watchTarget.startSeconds}
             activeSessionId={activeSession?.id}
-            userName={userName || authUser?.userName || ''}
+            userName={userName || authUser?.displayName || ''}
             userRole={authUser?.role as 'captain' | 'contributor' | 'viewer' | undefined}
             isAuthenticated={!!authUser}
             isFavorited={favorites.has(watchTarget.video.id)}
