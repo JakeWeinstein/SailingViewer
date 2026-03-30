@@ -18,7 +18,7 @@ import NotificationBell from './NotificationBell'
 import GlobalSearchBar from './GlobalSearchBar'
 import type { Session, Comment } from '@/lib/types'
 import type { SessionVideo, VideoNote, Article, ReferenceFolder } from '@/lib/types'
-import { youtubeThumbnailUrl } from '@/lib/types'
+import { videoThumbnailUrl } from '@/lib/types'
 import clsx from 'clsx'
 import Link from 'next/link'
 
@@ -1078,7 +1078,7 @@ export default function DashboardView({ initialSessions, userRole, userName, use
                                 <div className="relative aspect-video bg-gray-100 overflow-hidden">
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
                                   <img
-                                    src={youtubeThumbnailUrl(video.id)}
+                                    src={videoThumbnailUrl(video)}
                                     alt={video.name}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                     loading="lazy"

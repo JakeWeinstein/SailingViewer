@@ -11,6 +11,9 @@ export async function GET(req: NextRequest) {
 
   if (!payload || !showDrafts) {
     query = query.eq('is_published', true)
+  } else if (showDrafts && payload.role !== 'captain') {
+    // Non-captain users can only see their own drafts + published articles
+    query = query.or(`is_published.eq.true,author_id.eq.${payload.userId}`)
   }
 
   const { data, error } = await query

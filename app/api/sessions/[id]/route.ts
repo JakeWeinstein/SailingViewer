@@ -44,8 +44,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json(data)
   }
 
-  // Replace full video list — any authenticated user
+  // Replace full video list — captain or contributor only
   if ('videos' in body) {
+    if (payload.role === 'viewer') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
     if (!Array.isArray(body.videos)) {
       return NextResponse.json({ error: 'videos must be an array' }, { status: 400 })
     }

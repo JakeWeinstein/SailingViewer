@@ -70,6 +70,7 @@ export type Comment = {
   session_id: string | null
   video_id: string | null
   video_title: string | null
+  author_id: string | null
   author_name: string
   timestamp_seconds: number | null
   comment_text: string
@@ -105,6 +106,7 @@ export type VideoNote = {
 export type SessionVideo = {
   id: string
   name: string
+  type?: 'youtube' | 'drive'  // defaults to 'youtube' for backward compat
   // Legacy single-note fields (backward compat)
   note?: string
   noteTimestamp?: number
@@ -170,6 +172,38 @@ export type Article = {
   created_at: string
   updated_at: string
 }
+
+// ─── Drive helpers ──────────────────────────────────────────────────────────
+
+export function driveThumbnailUrl(id: string) {
+  return `https://drive.google.com/thumbnail?id=${id}&sz=w400-h225`
+}
+
+export function driveEmbedUrl(id: string) {
+  return `https://drive.google.com/file/d/${id}/preview`
+}
+
+export function extractDriveFileId(input: string): string | null {
+  const s = input.trim()
+  // https://drive.google.com/file/d/FILE_ID/...
+  const fileMatch = s.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)
+  if (fileMatch) return fileMatch[1]
+  // https://drive.google.com/open?id=FILE_ID
+  const openMatch = s.match(/[?&]id=([a-zA-Z0-9_-]+)/)
+  if (openMatch) return openMatch[1]
+  // Raw ID (no slashes, no dots, 10+ chars)
+  if (/^[a-zA-Z0-9_-]{10,}$/.test(s) && !s.includes('.')) return s
+  return null
+}
+
+/** Return the correct thumbnail URL based on video type */
+export function videoThumbnailUrl(video: SessionVideo): string {
+  return video.type === 'drive'
+    ? driveThumbnailUrl(video.id)
+    : youtubeThumbnailUrl(video.id)
+}
+
+// ─── YouTube helpers ────────────────────────────────────────────────────────
 
 export function youtubeThumbnailUrl(id: string) {
   return `https://img.youtube.com/vi/${id}/mqdefault.jpg`

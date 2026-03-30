@@ -14,6 +14,10 @@ export async function GET(
   if (!data.is_published) {
     const payload = await getTokenPayload(req)
     if (!payload) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    // Only the author or captain can view unpublished drafts
+    if (payload.role !== 'captain' && data.author_id !== payload.userId) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
   }
 
   return NextResponse.json(data)

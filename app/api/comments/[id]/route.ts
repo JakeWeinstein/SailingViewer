@@ -104,13 +104,29 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Delete replies first (cascade), then the comment itself
-  const { error: deleteRepliesError } = await supabase
+  // Delete all descendant replies recursively, then the comment itself
+  // First, find direct replies
+  const { data: directReplies } = await supabase
     .from('comments')
-    .delete()
+    .select('id')
     .eq('parent_id', id)
 
-  if (deleteRepliesError) return NextResponse.json({ error: deleteRepliesError.message }, { status: 500 })
+  if (directReplies && directReplies.length > 0) {
+    // Delete nested replies (replies to replies)
+    const replyIds = directReplies.map((r: { id: string }) => r.id)
+    await supabase
+      .from('comments')
+      .delete()
+      .in('parent_id', replyIds)
+
+    // Delete direct replies
+    const { error: deleteRepliesError } = await supabase
+      .from('comments')
+      .delete()
+      .eq('parent_id', id)
+
+    if (deleteRepliesError) return NextResponse.json({ error: deleteRepliesError.message }, { status: 500 })
+  }
 
   const { error: deleteError } = await supabase
     .from('comments')

@@ -8,7 +8,7 @@ import ArticleViewer from '@/components/ArticleViewer'
 import QATab from '@/components/QATab'
 import NotificationBell from '@/components/NotificationBell'
 import GlobalSearchBar from '@/components/GlobalSearchBar'
-import { youtubeThumbnailUrl, type SessionVideo, type Article } from '@/lib/types'
+import { youtubeThumbnailUrl, videoThumbnailUrl, type SessionVideo, type Article } from '@/lib/types'
 import type { Comment } from '@/lib/types'
 import clsx from 'clsx'
 import Link from 'next/link'
@@ -295,7 +295,7 @@ export default function TeamFormPage() {
           <div className="relative aspect-video bg-gray-100 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={youtubeThumbnailUrl(video.id)}
+              src={videoThumbnailUrl(video)}
               alt={video.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               loading="lazy"
@@ -514,7 +514,7 @@ export default function TeamFormPage() {
                       <div className="relative aspect-video bg-gray-100 overflow-hidden">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={youtubeThumbnailUrl(video.id)}
+                          src={videoThumbnailUrl(video)}
                           alt={video.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           loading="lazy"

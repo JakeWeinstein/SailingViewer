@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 import type { Article, ArticleBlock, ReferenceVideo, ReferenceFolder } from '@/lib/types'
 import type { SessionVideo } from '@/lib/types'
-import { youtubeThumbnailUrl, extractYouTubeInfo, parseTimestamp, formatTime } from '@/lib/types'
+import { youtubeThumbnailUrl, videoThumbnailUrl, extractYouTubeInfo, parseTimestamp, formatTime } from '@/lib/types'
 import MentionTextarea, { type MentionUser } from '@/components/MentionTextarea'
 import clsx from 'clsx'
 
@@ -172,7 +172,7 @@ function VideoBlockEditor({
 
   function pickPracticeVideo(v: SessionVideo) {
     updateBlock(i, {
-      type: 'video', videoType: 'youtube',
+      type: 'video', videoType: v.type ?? 'youtube',
       videoRef: v.id, title: v.name, referenceVideoId: undefined,
     } as Partial<ArticleBlock>)
     setVideoPickerFor(null)
@@ -240,7 +240,7 @@ function VideoBlockEditor({
                 {videoPickerTab === 'practice' && filteredPractice.map(({ video, sessionLabel }) => (
                   <button key={video.id} onClick={() => pickPracticeVideo(video)} className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-50 text-left">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={youtubeThumbnailUrl(video.id)} alt={video.name} className="h-10 w-16 object-cover rounded shrink-0 bg-gray-100" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                    <img src={videoThumbnailUrl(video)} alt={video.name} className="h-10 w-16 object-cover rounded shrink-0 bg-gray-100" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                     <div className="min-w-0"><p className="text-sm text-gray-700 truncate">{video.name}</p><p className="text-xs text-gray-400">{sessionLabel}</p></div>
                   </button>
                 ))}

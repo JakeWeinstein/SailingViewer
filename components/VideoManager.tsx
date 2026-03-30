@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Plus, Trash2, Loader2, Link, Check, X } from 'lucide-react'
-import { extractYouTubeInfo, youtubeThumbnailUrl, type SessionVideo } from '@/lib/types'
+import { extractYouTubeInfo, videoThumbnailUrl, type SessionVideo } from '@/lib/types'
 
 interface VideoManagerProps {
   sessionId: string
@@ -68,7 +68,7 @@ export default function VideoManager({ sessionId, videos, onUpdated }: VideoMana
         <div key={v.id} className="flex items-center gap-2 group">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={youtubeThumbnailUrl(v.id)}
+            src={videoThumbnailUrl(v)}
             alt={v.name}
             className="h-8 w-14 object-cover rounded shrink-0 bg-gray-100"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}

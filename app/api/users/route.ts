@@ -46,7 +46,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { displayName, currentPassword, newPassword } = parsed.data
-  const updates: Record<string, string> = {}
+  const updates: Record<string, string | boolean> = {}
 
   if (displayName) {
     updates.display_name = displayName
@@ -70,7 +70,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     updates.password_hash = await bcrypt.hash(newPassword, 12)
-    updates.must_change_password = 'false'
+    updates.must_change_password = false
   }
 
   if (Object.keys(updates).length === 0) {

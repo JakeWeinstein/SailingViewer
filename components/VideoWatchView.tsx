@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers, Reply, Edit2, Bookmark, Pencil } from 'lucide-react'
-import { parseTimestamp, formatTime, youtubeThumbnailUrl, type SessionVideo, type VideoNote, type ReferenceVideo } from '@/lib/types'
+import { parseTimestamp, formatTime, youtubeThumbnailUrl, driveEmbedUrl, type SessionVideo, type VideoNote, type ReferenceVideo } from '@/lib/types'
 import { timeAgo, initials, avatarColor, parseMentions } from '@/lib/comment-utils'
 import { onYouTubeReady } from '@/lib/youtube-api'
 import type { Comment } from '@/lib/types'
@@ -56,7 +56,7 @@ interface VideoWatchViewProps {
   onNotesUpdated?: (videoId: string, notes: VideoNote[]) => void
   // Reference video / YouTube support
   mediaId?: string
-  videoType?: 'youtube'
+  videoType?: 'youtube' | 'drive'
   noteApiPath?: string
   startSeconds?: number  // Chapter start time — seek on initial load
   // Chapter navigation
@@ -84,6 +84,8 @@ export default function VideoWatchView({
   const effectiveCaptain = isCaptain || userRole === 'captain'
   const canEditChapters = isAuthenticated || effectiveCaptain || !!userId
   const effectiveVideoId = mediaId ?? video.id
+  const effectiveVideoType = videoType ?? video.type ?? 'youtube'
+  const isDrive = effectiveVideoType === 'drive'
 
   // Whether we are in multi-part mode (chapters have different video_refs)
   const isMultiVideo = siblingChapters
@@ -124,8 +126,10 @@ export default function VideoWatchView({
   useEffect(() => { startSecondsRef.current = startSeconds }, [startSeconds])
   useEffect(() => { activeChapterIndexRef.current = activeChapterIndex }, [activeChapterIndex])
 
-  // ── Initialize YT.Player ──
+  // ── Initialize YT.Player (YouTube only) ──
   useEffect(() => {
+    if (isDrive) return // Drive videos use a simple iframe, no YT player
+
     const containerId = containerIdRef.current
 
     // Guard: make sure container div is mounted before player creation
@@ -183,9 +187,9 @@ export default function VideoWatchView({
         ytPlayerRef.current = null
       }
     }
-    // Only re-run when the video ID changes
+    // Only re-run when the video ID or type changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveVideoId])
+  }, [effectiveVideoId, isDrive])
 
   // ── Chapter click: seek or load new video ──
   const handleChapterClick = useCallback((chapter: ReferenceVideo, idx: number) => {
@@ -411,11 +415,13 @@ export default function VideoWatchView({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      if (res.ok) {
-        setNotes(nextNotes)
-        onNotesUpdated?.(video.id, nextNotes)
-        onNoteUpdated?.(video.id, nextNotes[0]?.text ?? '', nextNotes[0]?.timestamp)
+      if (!res.ok) {
+        alert('Failed to save note. Please try again.')
+        return
       }
+      setNotes(nextNotes)
+      onNotesUpdated?.(video.id, nextNotes)
+      onNoteUpdated?.(video.id, nextNotes[0]?.text ?? '', nextNotes[0]?.timestamp)
     } finally {
       setSavingNote(false)
     }
@@ -486,19 +492,21 @@ export default function VideoWatchView({
           parent_id: parentId,
         }),
       })
-      if (res.ok) {
-        const newReply = await res.json()
-        setRepliesByComment((prev) => {
-          const next = new Map(prev)
-          next.set(parentId, [...(next.get(parentId) ?? []), newReply])
-          return next
-        })
-        setComments((prev) => prev.map((c) =>
-          c.id === parentId ? { ...c, reply_count: (c.reply_count ?? 0) + 1 } : c
-        ))
-        setReplyText('')
-        setReplyingTo(null)
+      if (!res.ok) {
+        alert('Failed to post reply. Please try again.')
+        return
       }
+      const newReply = await res.json()
+      setRepliesByComment((prev) => {
+        const next = new Map(prev)
+        next.set(parentId, [...(next.get(parentId) ?? []), newReply])
+        return next
+      })
+      setComments((prev) => prev.map((c) =>
+        c.id === parentId ? { ...c, reply_count: (c.reply_count ?? 0) + 1 } : c
+      ))
+      setReplyText('')
+      setReplyingTo(null)
     } finally {
       setPostingReply(false)
     }
@@ -520,12 +528,14 @@ export default function VideoWatchView({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comment_text: editText.trim() }),
       })
-      if (res.ok) {
-        const updated = await res.json()
-        setComments((prev) => prev.map((c) => c.id === commentId ? { ...c, ...updated, is_edited: true } : c))
-        setEditingCommentId(null)
-        setEditText('')
+      if (!res.ok) {
+        alert('Failed to save edit. Please try again.')
+        return
       }
+      const updated = await res.json()
+      setComments((prev) => prev.map((c) => c.id === commentId ? { ...c, ...updated, is_edited: true } : c))
+      setEditingCommentId(null)
+      setEditText('')
     } finally {
       setSavingEdit(false)
     }
@@ -536,10 +546,12 @@ export default function VideoWatchView({
     setDeletingCommentId(commentId)
     try {
       const res = await fetch(`/api/comments/${commentId}`, { method: 'DELETE' })
-      if (res.ok) {
-        setComments((prev) => prev.filter((c) => c.id !== commentId))
-        setConfirmDeleteId(null)
+      if (!res.ok) {
+        alert('Failed to delete comment. Please try again.')
+        return
       }
+      setComments((prev) => prev.filter((c) => c.id !== commentId))
+      setConfirmDeleteId(null)
     } finally {
       setDeletingCommentId(null)
     }
@@ -548,7 +560,7 @@ export default function VideoWatchView({
   // Ownership check: user can edit/delete own comments; captain can edit/delete any
   function canEditComment(comment: Comment) {
     if (!userId && !effectiveCaptain) return false
-    const commentAuthorId = (comment as Comment & { author_id?: string }).author_id
+    const commentAuthorId = comment.author_id
     return effectiveCaptain || (userId != null && commentAuthorId === userId)
   }
 
@@ -578,8 +590,7 @@ export default function VideoWatchView({
         setSendToCaptain(false)
         setTimeout(() => threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: 'smooth' }), 100)
       } else {
-        const err = await res.json().catch(() => ({}))
-        console.error('Failed to post comment:', res.status, err)
+        alert('Failed to post comment. Please try again.')
       }
     } finally {
       setPosting(false)
@@ -657,8 +668,17 @@ export default function VideoWatchView({
         {/* ── Left: Video + chapters (full width mobile, 65% desktop) ── */}
         <div className="w-full sm:w-[65%] flex flex-col shrink-0 sm:overflow-y-auto">
           <div className="bg-black aspect-video w-full">
-            {/* YT.Player mounts into this div */}
-            <div id={containerIdRef.current} className="w-full h-full" />
+            {isDrive ? (
+              <iframe
+                src={driveEmbedUrl(effectiveVideoId)}
+                className="w-full h-full"
+                allow="autoplay; fullscreen"
+                allowFullScreen
+              />
+            ) : (
+              /* YT.Player mounts into this div */
+              <div id={containerIdRef.current} className="w-full h-full" />
+            )}
           </div>
           <div className="bg-gray-900 px-4 py-2.5 flex items-center gap-3">
             <div className="flex-1 min-w-0">
@@ -689,15 +709,28 @@ export default function VideoWatchView({
                 <Heart className={clsx('h-5 w-5 transition-colors', isFavorited ? 'fill-red-500 text-red-500' : 'text-gray-500 hover:text-red-400')} />
               </button>
             )}
-            <a
-              href={`https://www.youtube.com/watch?v=${effectiveVideoId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-blue-400 hover:underline flex items-center gap-1"
-              title="Open on YouTube"
-            >
-              <ExternalLink className="h-3 w-3" />
-            </a>
+            {!isDrive && (
+              <a
+                href={`https://www.youtube.com/watch?v=${effectiveVideoId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-400 hover:underline flex items-center gap-1"
+                title="Open on YouTube"
+              >
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+            {isDrive && (
+              <a
+                href={`https://drive.google.com/file/d/${effectiveVideoId}/view`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-400 hover:underline flex items-center gap-1"
+                title="Open in Drive"
+              >
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
           </div>
 
           {/* Chapter navigation — below title bar in left column */}

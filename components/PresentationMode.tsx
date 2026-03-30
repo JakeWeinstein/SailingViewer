@@ -8,7 +8,7 @@ import {
   MessageSquare, FileText, HelpCircle,
 } from 'lucide-react'
 import type { Comment, SessionVideo, ReferenceVideo, ReferenceFolder } from '@/lib/types'
-import { youtubeEmbedUrl, youtubeThumbnailUrl } from '@/lib/types'
+import { youtubeEmbedUrl, videoThumbnailUrl, driveEmbedUrl } from '@/lib/types'
 import { timeAgo, initials, avatarColor } from '@/lib/comment-utils'
 import PresentationQueue from '@/components/PresentationQueue'
 import clsx from 'clsx'
@@ -46,6 +46,7 @@ interface SelectedBrowseVideo {
   source: 'session' | 'reference'
   startSeconds?: number
   refVideoId?: string
+  videoType?: 'youtube' | 'drive'
 }
 
 interface PresentationModeProps {
@@ -191,6 +192,17 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
     const session = fullSessions.find((s) => s.id === selectedSessionId)
     return session?.videos ?? []
   }, [selectedSessionId, fullSessions, fullSessionsFetched])
+
+  // Build a lookup of video_id → type from all loaded sessions
+  const videoTypeMap = useMemo(() => {
+    const map = new Map<string, 'youtube' | 'drive'>()
+    for (const session of fullSessions) {
+      for (const v of session.videos) {
+        map.set(v.id, v.type ?? 'youtube')
+      }
+    }
+    return map
+  }, [fullSessions])
 
   // Separate active vs archived
   const activeItems = useMemo(
@@ -458,11 +470,13 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
           send_to_captain: false,
         }),
       })
-      if (res.ok) {
-        setReplyText('')
-        setReplySuccess(true)
-        setTimeout(() => setReplySuccess(false), 2000)
+      if (!res.ok) {
+        alert('Failed to send reply. Please try again.')
+        return
       }
+      setReplyText('')
+      setReplySuccess(true)
+      setTimeout(() => setReplySuccess(false), 2000)
     } finally {
       setReplySending(false)
     }
@@ -485,11 +499,13 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
           send_to_captain: true,
         }),
       })
-      if (res.ok) {
-        setBrowseCommentText('')
-        setBrowseCommentSuccess(true)
-        setTimeout(() => setBrowseCommentSuccess(false), 2000)
+      if (!res.ok) {
+        alert('Failed to post comment. Please try again.')
+        return
       }
+      setBrowseCommentText('')
+      setBrowseCommentSuccess(true)
+      setTimeout(() => setBrowseCommentSuccess(false), 2000)
     } finally {
       setBrowseCommentSending(false)
     }
@@ -851,6 +867,7 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
                       youtubeId: v.id,
                       title: v.name,
                       source: 'session',
+                      videoType: v.type ?? 'youtube',
                     })}
                     className={clsx(
                       'w-full text-left flex items-center gap-3 px-3 py-2 transition-colors',
@@ -860,7 +877,7 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
                     )}
                   >
                     <img
-                      src={youtubeThumbnailUrl(v.id)}
+                      src={videoThumbnailUrl(v)}
                       alt=""
                       className="w-20 h-[45px] rounded object-cover shrink-0 bg-gray-800"
                     />
@@ -988,9 +1005,11 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
 
               <div className="rounded-xl overflow-hidden bg-black aspect-video">
                 <iframe
-                  src={youtubeEmbedUrl(selectedBrowseVideo.youtubeId, selectedBrowseVideo.startSeconds)}
+                  src={selectedBrowseVideo.videoType === 'drive'
+                    ? driveEmbedUrl(selectedBrowseVideo.youtubeId)
+                    : youtubeEmbedUrl(selectedBrowseVideo.youtubeId, selectedBrowseVideo.startSeconds)}
                   className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                   allowFullScreen
                   title={selectedBrowseVideo.title}
                 />
@@ -1110,9 +1129,11 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
               {activeItem.video_id && (
                 <div className="rounded-xl overflow-hidden bg-black aspect-video">
                   <iframe
-                    src={youtubeEmbedUrl(activeItem.video_id!, activeItem.timestamp_seconds ?? undefined)}
+                    src={videoTypeMap.get(activeItem.video_id) === 'drive'
+                      ? driveEmbedUrl(activeItem.video_id!)
+                      : youtubeEmbedUrl(activeItem.video_id!, activeItem.timestamp_seconds ?? undefined)}
                     className="w-full h-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                     allowFullScreen
                     title={activeItem.video_title ?? 'Practice video'}
                   />

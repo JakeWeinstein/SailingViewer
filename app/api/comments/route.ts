@@ -77,7 +77,9 @@ export async function GET(req: NextRequest) {
 
   if (videoId) query = query.eq('video_id', videoId)
   if (sessionId) query = query.eq('session_id', sessionId)
-  if (captainOnly) query = query.eq('send_to_captain', true)
+  if (captainOnly) {
+    query = query.eq('send_to_captain', true).eq('is_reviewed', false)
+  }
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
