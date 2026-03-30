@@ -761,82 +761,58 @@ export default function VideoWatchView({
 
         {/* ── Left: Video + chapters (full width mobile, 65% desktop) ── */}
         <div className="w-full sm:w-[65%] flex flex-col shrink-0 sm:overflow-y-auto">
-          {/* Video player with flanking prev/next arrows */}
-          <div className="relative flex items-center">
-            {/* Prev arrow — outside left of video */}
-            {onPrev && !isFullscreen && (
+          <div
+            ref={videoContainerRef}
+            className={clsx(
+              'relative',
+              isFullscreen && 'fixed inset-0 z-[60] bg-black'
+            )}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            {isDrive ? (
+              <div className={clsx('bg-black w-full', isFullscreen ? 'h-full' : 'flex-1 min-h-[40vh] sm:min-h-[50vh] max-h-[80vh]')}>
+                <iframe
+                  src={driveEmbedUrl(effectiveVideoId)}
+                  className="w-full h-full"
+                  allow="autoplay; fullscreen"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <div className={clsx('bg-black w-full', isFullscreen ? 'h-full' : 'aspect-video')}>
+                {/* YT.Player mounts into this div */}
+                <div id={containerIdRef.current} className="w-full h-full" />
+              </div>
+            )}
+            {/* Prev arrow */}
+            {onPrev && (
               <button
                 onClick={onPrev}
-                className="absolute -left-0 sm:-left-12 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-[65] w-11 h-11 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-colors"
                 title="Previous video"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-6 w-6" />
               </button>
             )}
-
-            <div
-              ref={videoContainerRef}
-              className={clsx(
-                'relative flex-1',
-                isFullscreen && 'fixed inset-0 z-[60] bg-black'
-              )}
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-            >
-              {isDrive ? (
-                <div className={clsx('bg-black w-full', isFullscreen ? 'h-full' : 'flex-1 min-h-[40vh] sm:min-h-[50vh] max-h-[80vh]')}>
-                  <iframe
-                    src={driveEmbedUrl(effectiveVideoId)}
-                    className="w-full h-full"
-                    allow="autoplay; fullscreen"
-                    allowFullScreen
-                  />
-                </div>
-              ) : (
-                <div className={clsx('bg-black w-full', isFullscreen ? 'h-full' : 'aspect-video')}>
-                  {/* YT.Player mounts into this div */}
-                  <div id={containerIdRef.current} className="w-full h-full" />
-                </div>
-              )}
-              {/* Fullscreen prev/next arrows (inside video when fullscreen) */}
-              {isFullscreen && onPrev && (
-                <button
-                  onClick={onPrev}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 z-[65] w-11 h-11 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-colors"
-                  title="Previous video"
-                >
-                  <ChevronLeft className="h-6 w-6" />
-                </button>
-              )}
-              {isFullscreen && onNext && (
-                <button
-                  onClick={onNext}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 z-[65] w-11 h-11 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-colors"
-                  title="Next video"
-                >
-                  <ChevronRight className="h-6 w-6" />
-                </button>
-              )}
-              {/* Floating exit-fullscreen button when fullscreen */}
-              {isFullscreen && (
-                <button
-                  onClick={toggleFullscreen}
-                  className="absolute top-4 right-4 z-[70] p-2 rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors"
-                  title="Exit fullscreen"
-                >
-                  <Minimize2 className="h-5 w-5" />
-                </button>
-              )}
-            </div>
-
-            {/* Next arrow — outside right of video */}
-            {onNext && !isFullscreen && (
+            {/* Next arrow */}
+            {onNext && (
               <button
                 onClick={onNext}
-                className="absolute -right-0 sm:-right-12 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-[65] w-11 h-11 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-colors"
                 title="Next video"
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            )}
+            {/* Floating exit-fullscreen button when fullscreen */}
+            {isFullscreen && (
+              <button
+                onClick={toggleFullscreen}
+                className="absolute top-4 right-4 z-[70] p-2 rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors"
+                title="Exit fullscreen"
+              >
+                <Minimize2 className="h-5 w-5" />
               </button>
             )}
           </div>
