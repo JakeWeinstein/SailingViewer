@@ -180,7 +180,7 @@ export function driveThumbnailUrl(id: string) {
 }
 
 export function driveEmbedUrl(id: string) {
-  return `https://drive.google.com/file/d/${id}/preview`
+  return `https://drive.google.com/file/d/${id}/preview?autoplay=1`
 }
 
 export function extractDriveFileId(input: string): string | null {

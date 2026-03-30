@@ -737,9 +737,9 @@ export default function VideoWatchView({
             ref={videoContainerRef}
             className={clsx(
               'relative',
-              isFullscreen && 'fixed top-0 left-0 w-screen h-screen z-[100] bg-black'
+              isFullscreen && 'fixed top-0 left-0 w-screen z-[100] bg-black'
             )}
-            style={isFullscreen ? { width: '100vw', height: '100vh' } : undefined}
+            style={isFullscreen ? { width: '100vw', height: '95vh' } : undefined}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
@@ -748,7 +748,7 @@ export default function VideoWatchView({
                 <iframe
                   src={driveEmbedUrl(effectiveVideoId)}
                   className="w-full h-full"
-                  style={isFullscreen ? { width: '100vw', height: '100vh' } : undefined}
+                  style={isFullscreen ? { width: '100vw', height: '95vh' } : undefined}
                   allow="autoplay; fullscreen"
                   allowFullScreen
                 />
