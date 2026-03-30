@@ -105,39 +105,11 @@ export default function VideoWatchView({
 
   function toggleFullscreen() {
     if (!isFullscreen) {
-      const el = videoContainerRef.current
-      if (el) {
-        // Try native Fullscreen API first
-        if (el.requestFullscreen) {
-          el.requestFullscreen().catch(() => setIsFullscreen(true))
-        } else if ((el as HTMLDivElement & { webkitRequestFullscreen?: () => void }).webkitRequestFullscreen) {
-          (el as HTMLDivElement & { webkitRequestFullscreen: () => void }).webkitRequestFullscreen()
-        } else {
-          // CSS fallback
-          setIsFullscreen(true)
-        }
-      }
+      setIsFullscreen(true)
     } else {
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => setIsFullscreen(false))
-      } else {
-        setIsFullscreen(false)
-      }
+      setIsFullscreen(false)
     }
   }
-
-  // Sync isFullscreen state when user exits via browser controls or Escape
-  useEffect(() => {
-    function handleFullscreenChange() {
-      setIsFullscreen(!!document.fullscreenElement)
-    }
-    document.addEventListener('fullscreenchange', handleFullscreenChange)
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange)
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
-    }
-  }, [])
 
   // ── Swipe gesture state for prev/next video navigation ──
   const touchStartX = useRef<number | null>(null)

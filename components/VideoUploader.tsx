@@ -93,9 +93,19 @@ export default function VideoUploader({ sessions, onUploaded }: Props) {
 
   async function handleSheetImport() {
     if (!sheetPreview?.length) return
+
+    // Deduplicate within the sheet itself first
+    const seen = new Set<string>()
+    const uniqueSheet = sheetPreview.filter((v) => {
+      if (seen.has(v.id)) return false
+      seen.add(v.id)
+      return true
+    })
+
     // Filter out videos already in the session
     const existingIds = new Set((selectedSession?.videos ?? []).map((v) => v.id))
-    const newVideos = sheetPreview.filter((v) => !existingIds.has(v.id))
+    const newVideos = uniqueSheet.filter((v) => !existingIds.has(v.id))
+
     if (newVideos.length === 0) {
       setSheetError('All videos from this sheet are already in the session.')
       return
