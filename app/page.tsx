@@ -335,14 +335,18 @@ export default function TeamFormPage() {
     return (
       <div className="group relative bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-blue-200 transition-all">
         <button className="w-full text-left" onClick={() => setWatchTarget({ video, sessionId })}>
-          <div className="relative aspect-video bg-gray-100 overflow-hidden">
+          <div className="relative aspect-video bg-gray-200 overflow-hidden">
+            {/* Fallback — visible when thumbnail fails */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Play className="h-8 w-8 text-gray-400 fill-gray-400" />
+            </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={videoThumbnailUrl(video)}
               alt={video.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="relative w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               loading="lazy"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+              onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0' }}
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
               <div className="opacity-0 group-hover:opacity-100 bg-white/90 rounded-full p-2.5 shadow">
@@ -558,14 +562,18 @@ export default function TeamFormPage() {
                       onClick={() => setWatchTarget({ video, sessionId })}
                       className="group shrink-0 w-48 text-left bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-blue-200 transition-all"
                     >
-                      <div className="relative aspect-video bg-gray-100 overflow-hidden">
+                      <div className="relative aspect-video bg-gray-200 overflow-hidden">
+                        {/* Fallback — visible when thumbnail fails */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Play className="h-6 w-6 text-gray-400 fill-gray-400" />
+                        </div>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={videoThumbnailUrl(video)}
                           alt={video.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          className="relative w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           loading="lazy"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                          onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0' }}
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                           <div className="opacity-0 group-hover:opacity-100 bg-white/90 rounded-full p-2">
