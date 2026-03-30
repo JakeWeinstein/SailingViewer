@@ -667,7 +667,7 @@ export default function TeamFormPage() {
         )}
       </main>
 
-      {watchTarget && (userName || authUser?.userName) && (() => {
+      {watchTarget && (() => {
         // Compute prev/next video within the same session
         const sessionVideos = sessions.find((s) => s.id === watchTarget.sessionId)?.videos ?? []
         const currentIndex = sessionVideos.findIndex((v) => v.id === watchTarget.video.id)
