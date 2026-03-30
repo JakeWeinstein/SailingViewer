@@ -612,22 +612,32 @@ export default function TeamFormPage() {
         )}
       </main>
 
-      {watchTarget && userName && (
-        <VideoWatchView
-          video={watchTarget.video}
-          sessionId={watchTarget.sessionId}
-          startSeconds={watchTarget.startSeconds}
-          activeSessionId={activeSession?.id}
-          userName={userName}
-          userRole={authUser?.role as 'captain' | 'contributor' | 'viewer' | undefined}
-          isAuthenticated={!!authUser}
-          isFavorited={favorites.has(watchTarget.video.id)}
-          onFavoriteToggle={() => toggleFavorite(watchTarget.video.id)}
-          onNoteUpdated={handleNoteUpdated}
-          onClose={() => setWatchTarget(null)}
-          users={mentionUsers}
-        />
-      )}
+      {watchTarget && userName && (() => {
+        // Compute prev/next video within the same session
+        const sessionVideos = sessions.find((s) => s.id === watchTarget.sessionId)?.videos ?? []
+        const currentIndex = sessionVideos.findIndex((v) => v.id === watchTarget.video.id)
+        const prevVideo = currentIndex > 0 ? sessionVideos[currentIndex - 1] : undefined
+        const nextVideo = currentIndex >= 0 && currentIndex < sessionVideos.length - 1 ? sessionVideos[currentIndex + 1] : undefined
+
+        return (
+          <VideoWatchView
+            video={watchTarget.video}
+            sessionId={watchTarget.sessionId}
+            startSeconds={watchTarget.startSeconds}
+            activeSessionId={activeSession?.id}
+            userName={userName}
+            userRole={authUser?.role as 'captain' | 'contributor' | 'viewer' | undefined}
+            isAuthenticated={!!authUser}
+            isFavorited={favorites.has(watchTarget.video.id)}
+            onFavoriteToggle={() => toggleFavorite(watchTarget.video.id)}
+            onNoteUpdated={handleNoteUpdated}
+            onClose={() => setWatchTarget(null)}
+            users={mentionUsers}
+            onPrev={prevVideo ? () => setWatchTarget({ video: prevVideo, sessionId: watchTarget.sessionId }) : undefined}
+            onNext={nextVideo ? () => setWatchTarget({ video: nextVideo, sessionId: watchTarget.sessionId }) : undefined}
+          />
+        )
+      })()}
     </div>
   )
 }

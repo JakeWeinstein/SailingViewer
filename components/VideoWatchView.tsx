@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, Layers, Reply, Edit2, Bookmark, Pencil } from 'lucide-react'
+import { X, ExternalLink, Heart, Send, Shield, Plus, Trash2, Check, Clock, MessageSquare, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Layers, Reply, Edit2, Bookmark, Pencil, Maximize2, Minimize2 } from 'lucide-react'
 import { parseTimestamp, formatTime, youtubeThumbnailUrl, driveEmbedUrl, type SessionVideo, type VideoNote, type ReferenceVideo } from '@/lib/types'
 import { timeAgo, initials, avatarColor, parseMentions } from '@/lib/comment-utils'
 import { onYouTubeReady } from '@/lib/youtube-api'
@@ -69,6 +69,9 @@ interface VideoWatchViewProps {
   onChaptersChanged?: () => void
   // @mention autocomplete data
   users?: MentionUser[]
+  // Session video navigation (prev/next)
+  onPrev?: () => void
+  onNext?: () => void
 }
 
 export default function VideoWatchView({
@@ -79,6 +82,7 @@ export default function VideoWatchView({
   siblingChapters, onChapterChange,
   isAuthenticated = false, onChaptersChanged,
   users = [],
+  onPrev, onNext,
 }: VideoWatchViewProps) {
   // isCaptain can be set via prop or derived from userRole
   const effectiveCaptain = isCaptain || userRole === 'captain'
@@ -94,6 +98,80 @@ export default function VideoWatchView({
 
   // Detect mobile on initial render
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 640
+
+  // ── Fullscreen state ──
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const videoContainerRef = useRef<HTMLDivElement>(null)
+
+  function toggleFullscreen() {
+    if (!isFullscreen) {
+      const el = videoContainerRef.current
+      if (el) {
+        // Try native Fullscreen API first
+        if (el.requestFullscreen) {
+          el.requestFullscreen().catch(() => setIsFullscreen(true))
+        } else if ((el as HTMLDivElement & { webkitRequestFullscreen?: () => void }).webkitRequestFullscreen) {
+          (el as HTMLDivElement & { webkitRequestFullscreen: () => void }).webkitRequestFullscreen()
+        } else {
+          // CSS fallback
+          setIsFullscreen(true)
+        }
+      }
+    } else {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => setIsFullscreen(false))
+      } else {
+        setIsFullscreen(false)
+      }
+    }
+  }
+
+  // Sync isFullscreen state when user exits via browser controls or Escape
+  useEffect(() => {
+    function handleFullscreenChange() {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+    }
+  }, [])
+
+  // ── Swipe gesture state for prev/next video navigation ──
+  const touchStartX = useRef<number | null>(null)
+  const touchStartY = useRef<number | null>(null)
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null || touchStartY.current === null) return
+    const dx = e.changedTouches[0].clientX - touchStartX.current
+    const dy = e.changedTouches[0].clientY - touchStartY.current
+    touchStartX.current = null
+    touchStartY.current = null
+    // Only trigger on horizontal swipes (ignore vertical scrolling)
+    if (Math.abs(dy) > Math.abs(dx)) return
+    if (Math.abs(dx) < 50) return
+    if (dx < 0 && onNext) onNext()
+    if (dx > 0 && onPrev) onPrev()
+  }
+
+  // ── Keyboard navigation for prev/next video ──
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const tag = (document.activeElement?.tagName ?? '').toLowerCase()
+      if (tag === 'input' || tag === 'textarea') return
+      if (e.key === 'ArrowLeft' && onPrev) { e.preventDefault(); onPrev() }
+      if (e.key === 'ArrowRight' && onNext) { e.preventDefault(); onNext() }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onPrev, onNext])
 
   // ── YouTube Player API state ──
   const ytPlayerRef = useRef<YTPlayer | null>(null)
@@ -354,10 +432,22 @@ export default function VideoWatchView({
   const composerRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isFullscreen) {
+          if (document.fullscreenElement) {
+            document.exitFullscreen().catch(() => setIsFullscreen(false))
+          } else {
+            setIsFullscreen(false)
+          }
+        } else {
+          onClose()
+        }
+      }
+    }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
+  }, [onClose, isFullscreen])
 
   useEffect(() => {
     setLoadingComments(true)
@@ -660,31 +750,72 @@ export default function VideoWatchView({
     >
       <div className="relative w-full h-full md:h-auto md:max-h-[90vh] max-w-7xl bg-white md:rounded-2xl shadow-2xl flex flex-col sm:flex-row overflow-hidden">
 
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 z-20 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        {!isFullscreen && (
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 z-20 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
 
         {/* ── Left: Video + chapters (full width mobile, 65% desktop) ── */}
         <div className="w-full sm:w-[65%] flex flex-col shrink-0 sm:overflow-y-auto">
-          {isDrive ? (
-            <div className="bg-black w-full flex-1 min-h-[40vh] sm:min-h-[50vh] max-h-[80vh]">
-              <iframe
-                src={driveEmbedUrl(effectiveVideoId)}
-                className="w-full h-full"
-                allow="autoplay; fullscreen"
-                allowFullScreen
-              />
-            </div>
-          ) : (
-            <div className="bg-black aspect-video w-full">
-              {/* YT.Player mounts into this div */}
-              <div id={containerIdRef.current} className="w-full h-full" />
-            </div>
-          )}
-          <div className="bg-gray-900 px-4 py-2.5 flex items-center gap-3">
+          <div
+            ref={videoContainerRef}
+            className={clsx(
+              'relative',
+              isFullscreen && 'fixed inset-0 z-[60] bg-black'
+            )}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            {isDrive ? (
+              <div className={clsx('bg-black w-full', isFullscreen ? 'h-full' : 'flex-1 min-h-[40vh] sm:min-h-[50vh] max-h-[80vh]')}>
+                <iframe
+                  src={driveEmbedUrl(effectiveVideoId)}
+                  className="w-full h-full"
+                  allow="autoplay; fullscreen"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <div className={clsx('bg-black w-full', isFullscreen ? 'h-full' : 'aspect-video')}>
+                {/* YT.Player mounts into this div */}
+                <div id={containerIdRef.current} className="w-full h-full" />
+              </div>
+            )}
+            {/* Prev/Next video overlay arrows */}
+            {onPrev && (
+              <button
+                onClick={onPrev}
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-[65] w-11 h-11 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-colors"
+                title="Previous video"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+            )}
+            {onNext && (
+              <button
+                onClick={onNext}
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-[65] w-11 h-11 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white transition-colors"
+                title="Next video"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            )}
+            {/* Floating exit-fullscreen button when fullscreen */}
+            {isFullscreen && (
+              <button
+                onClick={toggleFullscreen}
+                className="absolute top-4 right-4 z-[70] p-2 rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors"
+                title="Exit fullscreen"
+              >
+                <Minimize2 className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+          {!isFullscreen && <div className="bg-gray-900 px-4 py-2.5 flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-white text-sm font-semibold truncate">{video.name}</p>
             </div>
@@ -735,10 +866,17 @@ export default function VideoWatchView({
                 <ExternalLink className="h-3 w-3" />
               </a>
             )}
-          </div>
+            <button
+              onClick={toggleFullscreen}
+              title="Fullscreen"
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          </div>}
 
           {/* Chapter navigation — below title bar in left column */}
-          {siblingChapters && siblingChapters.length > 1 && (
+          {!isFullscreen && siblingChapters && siblingChapters.length > 1 && (
             <div className="border-b border-purple-100 bg-purple-50 px-4 py-2.5 shrink-0">
               <div className="flex items-center gap-1.5 mb-2">
                 <Layers className="h-3.5 w-3.5 text-purple-500" />
@@ -881,7 +1019,7 @@ export default function VideoWatchView({
           )}
 
           {/* Add first chapter — shown for reference videos without existing chapters */}
-          {(!siblingChapters || siblingChapters.length <= 1) && (mediaId || noteApiPath) && canEditChapters && (
+          {!isFullscreen && (!siblingChapters || siblingChapters.length <= 1) && (mediaId || noteApiPath) && canEditChapters && (
             <div className="border-b border-purple-100 bg-purple-50/50 px-4 py-2.5 shrink-0">
               {!addingChapter ? (
                 <button
@@ -942,7 +1080,7 @@ export default function VideoWatchView({
         </div>
 
         {/* ── Right panel (full width mobile, 35% desktop) ── */}
-        <div className="flex-1 sm:w-[35%] flex flex-col overflow-hidden border-l border-gray-100">
+        {!isFullscreen && <div className="flex-1 sm:w-[35%] flex flex-col overflow-hidden border-l border-gray-100">
 
           {/* Captain notes section */}
           {(effectiveCaptain || hasNotes) && (
@@ -1355,7 +1493,7 @@ export default function VideoWatchView({
               </div>
             </div>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   )
