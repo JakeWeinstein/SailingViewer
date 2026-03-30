@@ -668,8 +668,14 @@ export default function VideoWatchView({
         </button>
 
         {/* ── Left: Video + chapters (full width mobile, 65% desktop) ── */}
-        <div className="w-full sm:w-[65%] flex flex-col shrink-0 sm:overflow-y-auto">
-          <div className="bg-black aspect-video w-full">
+        <div className={clsx(
+          'flex flex-col shrink-0 sm:overflow-y-auto',
+          isDrive ? 'w-full sm:w-[45%]' : 'w-full sm:w-[65%]'
+        )}>
+          <div className={clsx(
+            'bg-black w-full',
+            isDrive ? 'aspect-[9/16] max-h-[70vh] sm:max-h-[80vh]' : 'aspect-video'
+          )}>
             {isDrive ? (
               <iframe
                 src={driveEmbedUrl(effectiveVideoId)}
