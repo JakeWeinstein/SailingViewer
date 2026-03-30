@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useMemo, useRef, Suspense } from 'react'
-import { Anchor, Loader2, Heart, MessageCircle, Play, ChevronDown, ChevronRight, BookOpen, GraduationCap, MessageSquare } from 'lucide-react'
+import { Anchor, Loader2, Heart, MessageCircle, Play, ChevronDown, ChevronRight, BookOpen, GraduationCap, MessageSquare, User, LogOut } from 'lucide-react'
 import VideoWatchView from '@/components/VideoWatchView'
 import ReferenceManager from '@/components/ReferenceManager'
 import ArticleViewer from '@/components/ArticleViewer'
@@ -41,6 +41,48 @@ function saveFavorites(favs: Set<string>) {
 }
 
 interface WatchTarget { video: SessionVideo; sessionId: string; startSeconds?: number }
+
+function ViewerProfileMenu({ userName }: { userName?: string }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.reload()
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-full transition-colors"
+      >
+        <User className="h-3.5 w-3.5" />
+        {userName || 'Profile'}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-40">
+          <div className="px-3 py-1.5 text-xs text-gray-400 truncate">{userName}</div>
+          <button
+            onClick={handleLogout}
+            className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <LogOut className="h-3 w-3" />
+            Log out
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function TeamFormPage() {
   const [userName, setUserName] = useState<string | null>(null)
@@ -355,13 +397,17 @@ export default function TeamFormPage() {
           {authUser && <NotificationBell />}
           {authUser !== undefined && (
             authUser ? (
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full transition-colors"
-              >
-                Dashboard
-                <ChevronRight className="h-3 w-3" />
-              </Link>
+              authUser.role === 'viewer' ? (
+                <ViewerProfileMenu userName={authUser.userName} />
+              ) : (
+                <Link
+                  href="/dashboard"
+                  className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full transition-colors"
+                >
+                  Dashboard
+                  <ChevronRight className="h-3 w-3" />
+                </Link>
+              )
             ) : (
               <Link
                 href="/login"
