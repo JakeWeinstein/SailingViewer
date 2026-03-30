@@ -771,7 +771,7 @@ export default function VideoWatchView({
             onTouchEnd={handleTouchEnd}
           >
             {isDrive ? (
-              <div className={clsx('bg-black w-full', isFullscreen ? 'h-full' : 'flex-1 min-h-[40vh] sm:min-h-[50vh] max-h-[80vh]')}>
+              <div className={clsx('bg-black w-full', isFullscreen ? 'h-full' : 'h-[60vh] sm:h-[70vh]')}>
                 <iframe
                   src={driveEmbedUrl(effectiveVideoId)}
                   className="w-full h-full"
