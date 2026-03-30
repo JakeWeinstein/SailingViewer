@@ -17,10 +17,17 @@ export async function middleware(req: NextRequest) {
   }
 
   const token = req.cookies.get(COOKIE_NAME)?.value
+  const payload = token ? await verifyToken(token) : null
 
-  if (!token || !(await verifyToken(token))) {
+  if (!payload) {
     const loginUrl = new URL('/login', req.url)
     return NextResponse.redirect(loginUrl)
+  }
+
+  // Viewers cannot access the dashboard
+  if (pathname.startsWith('/dashboard') && payload.role === 'viewer') {
+    const homeUrl = new URL('/', req.url)
+    return NextResponse.redirect(homeUrl)
   }
 
   return NextResponse.next()
