@@ -668,26 +668,22 @@ export default function VideoWatchView({
         </button>
 
         {/* ── Left: Video + chapters (full width mobile, 65% desktop) ── */}
-        <div className={clsx(
-          'flex flex-col shrink-0 sm:overflow-y-auto',
-          isDrive ? 'w-full sm:w-[45%]' : 'w-full sm:w-[65%]'
-        )}>
-          <div className={clsx(
-            'bg-black w-full',
-            isDrive ? 'aspect-[9/16] max-h-[70vh] sm:max-h-[80vh]' : 'aspect-video'
-          )}>
-            {isDrive ? (
+        <div className="w-full sm:w-[65%] flex flex-col shrink-0 sm:overflow-y-auto">
+          {isDrive ? (
+            <div className="bg-black w-full flex-1 min-h-[40vh] sm:min-h-[50vh] max-h-[80vh]">
               <iframe
                 src={driveEmbedUrl(effectiveVideoId)}
                 className="w-full h-full"
                 allow="autoplay; fullscreen"
                 allowFullScreen
               />
-            ) : (
-              /* YT.Player mounts into this div */
+            </div>
+          ) : (
+            <div className="bg-black aspect-video w-full">
+              {/* YT.Player mounts into this div */}
               <div id={containerIdRef.current} className="w-full h-full" />
-            )}
-          </div>
+            </div>
+          )}
           <div className="bg-gray-900 px-4 py-2.5 flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-white text-sm font-semibold truncate">{video.name}</p>
