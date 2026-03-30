@@ -725,7 +725,7 @@ export default function VideoWatchView({
         {!isFullscreen && (
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 z-20 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+            className="absolute top-3 left-3 z-20 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -783,7 +783,7 @@ export default function VideoWatchView({
             {isFullscreen && (
               <button
                 onClick={toggleFullscreen}
-                className="absolute top-4 right-4 z-[70] p-2 rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors"
+                className="absolute top-4 left-4 z-[110] p-2 rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors"
                 title="Exit fullscreen"
               >
                 <Minimize2 className="h-5 w-5" />
