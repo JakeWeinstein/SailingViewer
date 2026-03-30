@@ -658,7 +658,7 @@ export default function TeamFormPage() {
         )}
       </main>
 
-      {watchTarget && userName && (() => {
+      {watchTarget && (() => {
         // Compute prev/next video within the same session
         const sessionVideos = sessions.find((s) => s.id === watchTarget.sessionId)?.videos ?? []
         const currentIndex = sessionVideos.findIndex((v) => v.id === watchTarget.video.id)
@@ -671,7 +671,7 @@ export default function TeamFormPage() {
             sessionId={watchTarget.sessionId}
             startSeconds={watchTarget.startSeconds}
             activeSessionId={activeSession?.id}
-            userName={userName}
+            userName={userName ?? 'Anonymous'}
             userRole={authUser?.role as 'captain' | 'contributor' | 'viewer' | undefined}
             isAuthenticated={!!authUser}
             isFavorited={favorites.has(watchTarget.video.id)}
