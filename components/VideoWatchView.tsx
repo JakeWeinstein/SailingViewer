@@ -97,7 +97,7 @@ export default function VideoWatchView({
 
   // ── YouTube Player API state ──
   const ytPlayerRef = useRef<YTPlayer | null>(null)
-  const containerIdRef = useRef(`yt-player-${effectiveVideoId}-${Math.random().toString(36).slice(2, 7)}`)
+  const containerIdRef = useRef(`yt-player-${Math.random().toString(36).slice(2, 10)}`)
   const startSecondsRef = useRef(startSeconds)
   const siblingChaptersRef = useRef(siblingChapters)
   const onChapterChangeRef = useRef(onChapterChange)
@@ -142,6 +142,7 @@ export default function VideoWatchView({
       if (ytPlayerRef.current) return
 
       playerCreated = true
+      try {
       ytPlayerRef.current = new window.YT.Player(containerId, {
         videoId: effectiveVideoId,
         playerVars: {
@@ -179,6 +180,7 @@ export default function VideoWatchView({
           },
         },
       })
+      } catch { /* ignore invalid video id errors for non-YouTube IDs */ }
     })
 
     return () => {
