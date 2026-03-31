@@ -132,16 +132,16 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
     }
   }, [selectedSessionId, fetchItems])
 
-  // Fetch full sessions (with videos) on first switch to 'videos' mode
+  // Fetch full sessions (with videos) eagerly — needed for videoTypeMap in review queue
   useEffect(() => {
-    if (sidebarMode !== 'videos' || fullSessionsFetched) return
+    if (fullSessionsFetched) return
     fetch('/api/sessions')
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setFullSessions(data)
         setFullSessionsFetched(true)
       })
-  }, [sidebarMode, fullSessionsFetched])
+  }, [fullSessionsFetched])
 
   // Fetch reference data on first switch to 'reference' mode
   useEffect(() => {
@@ -276,7 +276,7 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
         // Ensure sessions are fetched then select
         if (!fullSessionsFetched) setFullSessionsFetched(false) // trigger fetch
         switchSidebarMode('videos')
-        setSelectedBrowseVideo({ youtubeId: result.id, title: result.title, source: 'session' })
+        setSelectedBrowseVideo({ youtubeId: result.id, title: result.title, source: 'session', videoType: videoTypeMap.get(result.id) ?? 'youtube' })
         break
       }
       case 'reference': {
@@ -326,6 +326,7 @@ export default function PresentationMode({ sessions, userName }: PresentationMod
             title: result.title,
             source: 'session',
             startSeconds: seconds,
+            videoType: videoTypeMap.get(videoId) ?? 'youtube',
           })
         }
         break
