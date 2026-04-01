@@ -720,7 +720,7 @@ export default function VideoWatchView({
       className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-0 md:p-4 overflow-hidden"
       onClick={(e) => { if (e.target === backdropRef.current) onClose() }}
     >
-      <div className="relative w-full h-full md:h-auto md:max-h-[90vh] max-w-7xl bg-white md:rounded-2xl shadow-2xl flex flex-col sm:flex-row overflow-hidden">
+      <div className="relative w-full h-full md:h-auto md:max-h-[90vh] max-w-7xl bg-white md:rounded-2xl shadow-2xl flex flex-col sm:flex-row overflow-y-auto sm:overflow-hidden">
 
         {!isFullscreen && (
           <button
@@ -732,7 +732,7 @@ export default function VideoWatchView({
         )}
 
         {/* ── Left: Video + chapters (full width mobile, 65% desktop) ── */}
-        <div className="w-full sm:w-[65%] flex flex-col shrink-0 sm:overflow-y-auto">
+        <div className="w-full sm:w-[65%] flex flex-col sm:shrink-0 sm:overflow-y-auto">
           <div
             ref={videoContainerRef}
             className={clsx(
@@ -744,7 +744,7 @@ export default function VideoWatchView({
             onTouchEnd={handleTouchEnd}
           >
             {isDrive ? (
-              <div className={clsx('bg-black w-full', isFullscreen ? 'h-full' : 'h-[60vh] sm:h-[70vh]')}>
+              <div className={clsx('bg-black w-full', isFullscreen ? 'h-full' : 'h-[35vh] sm:h-[70vh]')}>
                 <iframe
                   src={driveEmbedUrl(effectiveVideoId)}
                   className="w-full h-full"
@@ -1227,7 +1227,7 @@ export default function VideoWatchView({
                       type="text"
                       value={timestampRaw}
                       onChange={(e) => setTimestampRaw(e.target.value)}
-                      placeholder="Timestamp — e.g. 1:23"
+                      placeholder="e.g. 1:23"
                       className={clsx(
                         'w-28 px-2 py-1 border rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500',
                         timestampInvalid ? 'border-red-300 bg-red-50' : 'border-gray-200'
@@ -1270,7 +1270,7 @@ export default function VideoWatchView({
               </div>
 
               {/* Comment thread */}
-              <div ref={threadRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-3">
+              <div ref={threadRef} className="flex-1 min-h-[200px] sm:min-h-0 overflow-y-auto px-4 py-3 space-y-3">
                 {loadingComments && <p className="text-xs text-gray-400">Loading...</p>}
                 {!loadingComments && sorted.length === 0 && (
                   <p className="text-xs text-gray-400 italic">No comments yet. Be the first!</p>
